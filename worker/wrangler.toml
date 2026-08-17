@@ -1,0 +1,15 @@
+name = "3c-production-manager"
+main = "index.js"
+compatibility_date = "2026-08-17"
+
+routes = [
+  { pattern = "productionmanager.threadcommand.center", custom_domain = true }
+]
+
+[[d1_databases]]
+binding = "PRODUCTION_DB"
+database_name = "3c-production-manager-db"
+database_id = "6cb8cb43-1bc3-4adb-90cb-299e7dd852ab"
+
+[triggers]
+crons = ["0 14 * * *"]
