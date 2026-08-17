@@ -61,10 +61,6 @@ async function apiExportUrl({ platform, weekStart, weekEnd }) {
   if (platform) params.set('platform', platform);
   if (weekStart) params.set('week_start', weekStart);
   if (weekEnd) params.set('week_end', weekEnd);
-  // CSV download goes through a real link click (not fetch) so the browser
-  // handles Content-Disposition correctly — but it still needs the auth
-  // header, which a plain <a href> can't send. Fetch the blob, then
-  // trigger the download from JS.
   const res = await fetch(`${CONFIG.apiBase}/export?${params}`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Failed to export');
   return res.blob();
