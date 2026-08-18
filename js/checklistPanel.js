@@ -1,15 +1,45 @@
-// 3C Production Manager — checklist detail panel
+// 3C Production Manager — checklist detail / add-task panel
 //
-// Stage auto-advance: the board only has 5 generic columns, but each
-// item's real checklist is type-specific (e.g. YouTube's 8 steps). To
-// connect the two without a separate mapping config: when a ticked
-// checklist step's name matches a stage name exactly (Create, Review,
-// Schedule, Publish, Archive — case-insensitive), the card moves to
-// that stage. Steps that don't match a stage name (Script, Voiceover,
-// Record...) are just prerequisites within whichever stage the card is
-// currently in.
+// One panel, two modes. Adding a task and editing one later share the
+// exact same checklist editor — add a step, delete a step, reorder up
+// or down — the only difference is edit mode also shows a tick-box per
+// step and saves changes immediately instead of waiting for one Save.
+//
+// Auto-advance: ticking a step whose name matches a board stage
+// (Create/Review/Schedule/Publish/Archive, case-insensitive) moves the
+// item to that stage. Since every task's checklist is now fully custom,
+// this only fires if Chef's own checklist happens to include a step
+// with that exact name — nothing forces it.
 
 let currentItemId = null;
+let editingChecklist = []; // working array of {step, done} while the panel is open
+
+function openAddTaskModal() {
+    if (!currentPlatform) { alert('Add a platform first.'); return; }
+
+    currentItemId = null;
+    editingChecklist = [];
+
+    document.getElementById('detailTitle').innerHTML = `<input type="text" id="taskTitleInput" class="form-input" placeholder="Task title...">`;
+    document.getElementById('detailDateTime').style.display = 'flex';
+    document.getElementById('taskDateInput').value = '';
+    document.getElementById('taskTimeInput').value = '';
+    document.getElementById('detailSaveBtn').style.display = 'block';
+    document.getElementById('scheduleSubsteps').style.display = 'none';
+    document.getElementById('archiveBlock').style.display = 'none';
+
+    renderChecklistEditor();
+
+    // Pre-fill from the platform's default — a starting suggestion,
+    // fully editable from the moment it appears.
+    apiGetPlatformDefault(currentPlatform).then(({ checklist }) => {
+        editingChecklist = (checklist || []).map(step => ({ step, done: false }));
+        renderChecklistEditor();
+    });
+
+    document.getElementById('detailPanel').classList.add('active');
+    document.getElementById('detailOverlay').classList.add('active');
+}
 
 async function openChecklistPanel(itemId) {
     currentItemId = itemId;
@@ -18,30 +48,16 @@ async function openChecklistPanel(itemId) {
     const item = items.find(i => i.id === itemId);
     if (!item) return;
 
-    const template = templatesCache.find(t => t.id === item.template_id);
-    const checklist = template ? template.checklist : [];
-    const state = item.checklist_state || {};
+    editingChecklist = (item.checklist || []).map(s => ({ ...s }));
 
     document.getElementById('detailTitle').textContent = item.title;
+    document.getElementById('detailDateTime').style.display = 'none';
+    document.getElementById('detailSaveBtn').style.display = 'none';
 
-    const stageNames = STAGES.map(s => s.label.toLowerCase());
+    renderChecklistEditor();
 
-    document.getElementById('detailChecklist').innerHTML = checklist.map(step => {
-        const checked = !!state[step];
-        const isStageStep = stageNames.includes(step.toLowerCase());
-        return `
-            <div class="checklist-item ${checked ? 'checked' : ''}">
-                <input type="checkbox" id="cb-${step.replace(/\s+/g, '-')}" ${checked ? 'checked' : ''}
-                    onchange="toggleChecklistStep('${escapeHtml(step)}', this.checked)">
-                <label for="cb-${step.replace(/\s+/g, '-')}">${escapeHtml(step)}${isStageStep ? ' <span style="opacity:.5">(board stage)</span>' : ''}</label>
-            </div>
-        `;
-    }).join('');
-
-    // Schedule sub-requirements — only relevant once the item's actual
-    // checklist includes a "Schedule" step at all.
     const scheduleBlock = document.getElementById('scheduleSubsteps');
-    if (checklist.some(s => s.toLowerCase() === 'schedule')) {
+    if (editingChecklist.some(s => s.step.toLowerCase() === 'schedule')) {
         scheduleBlock.style.display = 'block';
         scheduleBlock.innerHTML = `
             <div class="schedule-substeps-title">Before this counts as scheduled</div>
@@ -60,9 +76,8 @@ async function openChecklistPanel(itemId) {
         scheduleBlock.style.display = 'none';
     }
 
-    // Archive — only shown for templates that actually need it.
     const archiveBlock = document.getElementById('archiveBlock');
-    if (template && template.needs_archive) {
+    if (editingChecklist.some(s => s.step.toLowerCase() === 'archive')) {
         archiveBlock.style.display = 'block';
         archiveBlock.innerHTML = item.archive_confirmed
             ? `<div class="archive-note">✓ Archived — filed to COG${item.archive_note_ref ? ': ' + escapeHtml(item.archive_note_ref) : ''}</div>`
@@ -87,26 +102,80 @@ function closeChecklistPanel() {
     currentItemId = null;
 }
 
-async function toggleChecklistStep(step, checked) {
-    if (!currentItemId) return;
-    await apiUpdatePipelineItem(currentItemId, { checklist_state: { [step]: checked } });
+// ── Checklist editor — shared by both add and edit modes ───────
+function renderChecklistEditor() {
+    const wrap = document.getElementById('detailChecklist');
+    wrap.innerHTML = editingChecklist.map((s, i) => `
+        <div class="checklist-item ${s.done ? 'checked' : ''}">
+            ${currentItemId ? `<input type="checkbox" ${s.done ? 'checked' : ''} onchange="toggleStepDone(${i}, this.checked)">` : ''}
+            <input type="text" class="checklist-step-input" value="${escapeHtml(s.step)}" onchange="renameStep(${i}, this.value)">
+            <span class="checklist-step-controls">
+                <button type="button" onclick="moveStep(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="Move up">↑</button>
+                <button type="button" onclick="moveStep(${i}, 1)" ${i === editingChecklist.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
+                <button type="button" onclick="deleteStep(${i})" title="Delete">✕</button>
+            </span>
+        </div>
+    `).join('') + `
+        <div class="checklist-add-row">
+            <input type="text" id="newStepInput" class="form-input" placeholder="Add a step..."
+                onkeydown="if(event.key==='Enter'){event.preventDefault();addStep();}">
+            <button type="button" class="btn btn-ghost" onclick="addStep()">+ Add</button>
+        </div>
+    `;
+}
 
-    // Auto-advance: find the furthest-along stage-named step that's ticked.
+function addStep() {
+    const input = document.getElementById('newStepInput');
+    const val = input.value.trim();
+    if (!val) return;
+    editingChecklist.push({ step: val, done: false });
+    input.value = '';
+    renderChecklistEditor();
+    if (currentItemId) persistChecklist();
+}
+
+function deleteStep(i) {
+    editingChecklist.splice(i, 1);
+    renderChecklistEditor();
+    if (currentItemId) persistChecklist();
+}
+
+function moveStep(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= editingChecklist.length) return;
+    [editingChecklist[i], editingChecklist[j]] = [editingChecklist[j], editingChecklist[i]];
+    renderChecklistEditor();
+    if (currentItemId) persistChecklist();
+}
+
+function renameStep(i, value) {
+    editingChecklist[i].step = value.trim() || editingChecklist[i].step;
+    if (currentItemId) persistChecklist();
+}
+
+async function toggleStepDone(i, checked) {
+    editingChecklist[i].done = checked;
+    await persistChecklist();
+
     if (checked) {
-        const stageMatch = STAGES.find(s => s.label.toLowerCase() === step.toLowerCase());
+        const stepName = editingChecklist[i].step.toLowerCase();
+        const stageMatch = STAGES.find(s => s.label.toLowerCase() === stepName);
         if (stageMatch) {
             await apiUpdatePipelineItem(currentItemId, { stage: stageMatch.key });
         }
     }
-
     await renderBoard();
-    await openChecklistPanel(currentItemId);
+    renderChecklistEditor();
+}
+
+async function persistChecklist() {
+    if (!currentItemId) return; // new-task mode — saved once, on "Add Task"
+    await apiUpdatePipelineItem(currentItemId, { checklist: editingChecklist });
 }
 
 async function toggleScheduleSubstep(field, checked) {
     if (!currentItemId) return;
     await apiUpdatePipelineItem(currentItemId, { [field]: checked ? 1 : 0 });
-    await openChecklistPanel(currentItemId);
 }
 
 async function confirmArchive() {
@@ -115,4 +184,23 @@ async function confirmArchive() {
     await apiUpdatePipelineItem(currentItemId, { archive_confirmed: true, archive_note_ref: ref, stage: 'archive' });
     await renderBoard();
     await openChecklistPanel(currentItemId);
+}
+
+// ── Save a brand-new task ───────────────────────────────────────
+async function saveNewTask() {
+    const title = document.getElementById('taskTitleInput').value.trim();
+    const date = document.getElementById('taskDateInput').value || null;
+    const time = document.getElementById('taskTimeInput').value || null;
+    if (!title) return alert('Title is required.');
+    if (!editingChecklist.length) return alert('Add at least one checklist step.');
+
+    await apiCreatePipelineItem({
+        platform: currentPlatform,
+        title,
+        scheduled_date: date,
+        scheduled_time: time,
+        checklist: editingChecklist.map(s => s.step),
+    });
+    closeChecklistPanel();
+    await renderBoard();
 }
