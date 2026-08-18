@@ -21,23 +21,50 @@ function switchMainTab(tab) {
     document.getElementById(`mainTabBtn-${tab}`).classList.add('active');
 }
 
-// ── Tasks — diary, scoped to one date at a time ──────────────────
+// ── Tasks — sticky notes, scoped to one date at a time ───────────
 let currentDiaryDate = todayIso();
+const STICKY_COLORS = ['sticky--yellow', 'sticky--pink', 'sticky--blue', 'sticky--green', 'sticky--orange'];
 
 async function loadDiaryPage(date) {
     currentDiaryDate = date;
     document.getElementById('diaryDateInput').value = date;
-    const entries = await apiGetDiaryEntries(date);
+    const notes = await apiGetStickyNotes(date);
     const list = document.getElementById('diaryEntryList');
-    list.innerHTML = entries.length
-        ? entries.map(e => `
-            <div class="diary-entry">
-                <span class="diary-entry-time">${e.entry_time || '—'}</span>
-                <span class="diary-entry-text">${escapeHtml(e.text)}</span>
-                <button class="btn btn-ghost" style="padding:2px 8px;" onclick="deleteDiaryEntry('${e.id}')">✕</button>
-            </div>
-        `).join('')
+    list.innerHTML = notes.length
+        ? notes.map((n, i) => renderStickyNote(n, i)).join('')
         : '<p style="opacity:.5;padding:1rem 0;">Nothing logged for this day yet.</p>';
+}
+
+function renderStickyNote(note, index) {
+    const colorClass = STICKY_COLORS[index % STICKY_COLORS.length];
+    const bullets = note.description || [];
+    return `
+        <div class="sticky-note ${colorClass}">
+            <button class="sticky-note-delete" onclick="deleteStickyNote('${note.id}')" title="Delete">✕</button>
+            <div class="sticky-note-title">Title: ${escapeHtml(note.title)}</div>
+            ${bullets.length ? `
+                <div class="sticky-note-description-label">Description:</div>
+                <div class="sticky-note-bullets">
+                    ${bullets.map((b, i) => `
+                        <label class="sticky-note-bullet ${b.done ? 'done' : ''}">
+                            <input type="checkbox" ${b.done ? 'checked' : ''} onchange="toggleStickyBullet('${note.id}', ${i}, this.checked)">
+                            <span>${escapeHtml(b.text)}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            ` : ''}
+            <div class="sticky-note-time">${note.entry_time || ''}</div>
+        </div>
+    `;
+}
+
+async function toggleStickyBullet(noteId, bulletIndex, checked) {
+    const notes = await apiGetStickyNotes(currentDiaryDate);
+    const note = notes.find(n => n.id === noteId);
+    if (!note) return;
+    const description = note.description.map((b, i) => i === bulletIndex ? { ...b, done: checked } : b);
+    await apiUpdateStickyNote(noteId, description);
+    await loadDiaryPage(currentDiaryDate);
 }
 
 function changeDiaryDate() {
@@ -45,20 +72,35 @@ function changeDiaryDate() {
     if (date) loadDiaryPage(date);
 }
 
-async function addDiaryEntry() {
-    const textInput = document.getElementById('newDiaryText');
-    const timeInput = document.getElementById('newDiaryTime');
-    const text = textInput.value.trim();
-    if (!text) return;
-    await apiCreateDiaryEntry({ entry_date: currentDiaryDate, entry_time: timeInput.value || null, text });
-    textInput.value = '';
+async function addStickyNote() {
+    const titleInput = document.getElementById('newNoteTitle');
+    const descInput = document.getElementById('newNoteDescription');
+    const timeInput = document.getElementById('newNoteTime');
+
+    const title = titleInput.value.trim();
+    if (!title) return alert('Title is required.');
+
+    const description = descInput.value
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean);
+
+    await apiCreateStickyNote({
+        entry_date: currentDiaryDate,
+        entry_time: timeInput.value || null,
+        title,
+        description,
+    });
+
+    titleInput.value = '';
+    descInput.value = '';
     timeInput.value = '';
     await loadDiaryPage(currentDiaryDate);
 }
 
-async function deleteDiaryEntry(id) {
-    if (!confirm('Delete this entry?')) return;
-    await apiDeleteDiaryEntry(id);
+async function deleteStickyNote(id) {
+    if (!confirm('Delete this sticky note?')) return;
+    await apiDeleteStickyNote(id);
     await loadDiaryPage(currentDiaryDate);
 }
 
