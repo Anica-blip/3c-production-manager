@@ -31,17 +31,15 @@
 
     <!-- ── Tasks tab — a diary, one day at a time ──────────── -->
     <div id="tasksTab">
-        <div class="diary-date-row">
-            <input type="date" id="diaryDateInput" class="form-input" style="max-width:180px;" onchange="changeDiaryDate()">
+        <div class="sticky-toolbar-row">
+            <input type="date" id="diaryDateInput" class="form-input" style="max-width:150px;" onchange="changeDiaryDate()">
+            <input type="time" id="newNoteTime" class="form-input" style="max-width:110px;">
+            <input type="text" id="newNoteTitle" class="form-input" placeholder="Title...">
+            <textarea id="newNoteDescription" class="form-textarea" rows="1" placeholder="Description — one point per line..."></textarea>
+            <button class="btn btn-add" onclick="addStickyNote()">+ Add</button>
         </div>
 
-        <div id="diaryEntryList" style="margin-bottom:1.5rem;"></div>
-
-        <div class="diary-add-row">
-            <input type="time" id="newDiaryTime" class="form-input" style="max-width:120px;">
-            <input type="text" id="newDiaryText" class="form-input" placeholder="What's on your mind...">
-            <button class="btn btn-add" onclick="addDiaryEntry()">+ Add</button>
-        </div>
+        <div id="diaryEntryList" class="sticky-note-board"></div>
     </div>
 
     <!-- ── Pipeline tab — per platform, fully independent ──── -->
