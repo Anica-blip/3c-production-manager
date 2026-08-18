@@ -1,6 +1,8 @@
 // 3C Production Manager — weekly board
-// Mon–Sun week view (Chef works by week, not month) with the 5-stage
-// board: Create, Review, Schedule, Publish, Archive.
+// Fully independent per platform: switching platforms swaps the whole
+// board — counters, list, and week — with zero shared state between
+// them. Counters are pure glance-at-it summaries; the actual work
+// happens in Add Task and the detail panel, not by clicking columns.
 
 const STAGES = [
     { key: 'create', label: 'Create' },
@@ -11,8 +13,8 @@ const STAGES = [
 ];
 
 let currentWeekStart = mondayOf(new Date());
-let currentPlatform = 'youtube';
-let templatesCache = [];
+let currentPlatform = null;
+let platformsCache = [];
 
 function mondayOf(date) {
     const d = new Date(date);
@@ -40,15 +42,17 @@ function formatWeekLabel(weekStart) {
 }
 
 async function initWeeklyBoard() {
-    templatesCache = await apiGetTemplates();
+    platformsCache = await apiGetPlatforms();
+    if (!currentPlatform || !platformsCache.includes(currentPlatform)) {
+        currentPlatform = platformsCache[0] || null;
+    }
     renderPlatformTabs();
     await renderBoard();
 }
 
 function renderPlatformTabs() {
-    const platforms = [...new Set(templatesCache.filter(t => t.platform).map(t => t.platform))];
     const wrap = document.getElementById('platformTabs');
-    wrap.innerHTML = platforms.map(p => `
+    wrap.innerHTML = platformsCache.map(p => `
         <button class="platform-tab-btn ${p === currentPlatform ? 'active' : ''}" onclick="switchPlatform('${p}')">
             ${p.charAt(0).toUpperCase() + p.slice(1)}
         </button>
@@ -68,44 +72,86 @@ async function changeWeek(delta) {
     await renderBoard();
 }
 
+async function jumpToWeekContaining(dateStr) {
+    currentWeekStart = mondayOf(new Date(dateStr + 'T00:00:00'));
+    await renderBoard();
+}
+
 async function renderBoard() {
     document.getElementById('weekLabel').textContent = formatWeekLabel(currentWeekStart);
 
-    const items = await apiGetPipelineItems({
+    const items = currentPlatform ? await apiGetPipelineItems({
         platform: currentPlatform,
         weekStart: isoDate(currentWeekStart),
         weekEnd: isoDate(weekEnd(currentWeekStart)),
-    });
+    }) : [];
 
-    const board = document.getElementById('stageBoard');
-    board.innerHTML = STAGES.map(stage => {
-        const stageItems = items.filter(i => i.stage === stage.key);
+    // Counters — pure counts, nothing else lives inside these
+    const counters = document.getElementById('stageCounters');
+    counters.innerHTML = STAGES.map(stage => {
+        const count = items.filter(i => i.stage === stage.key).length;
         return `
-            <div class="stage-column" data-stage="${stage.key}">
-                <div class="stage-column-title">${stage.label} (${stageItems.length})</div>
-                ${stageItems.map(renderCard).join('')}
-                ${stage.key === 'create' ? `<button class="btn btn-add" style="width:100%;margin-top:6px;" onclick="showAddContentModal()">+ Add content</button>` : ''}
+            <div class="stage-counter">
+                <div class="stage-counter-count">${count}</div>
+                <div class="stage-counter-label">${stage.label}</div>
             </div>
         `;
     }).join('');
+
+    // One flat list below, not split into columns
+    const list = document.getElementById('pipelineItemList');
+    list.innerHTML = items.length
+        ? items.map(renderListRow).join('')
+        : '<p style="opacity:.5; padding: 1rem 0;">No content yet this week.</p>';
+
+    renderMiniCalendar();
 }
 
-function renderCard(item) {
-    const template = templatesCache.find(t => t.id === item.template_id);
-    const checklist = template ? template.checklist : [];
-    const state = item.checklist_state || {};
-    const doneCount = checklist.filter(step => state[step]).length;
+function renderListRow(item) {
+    const checklist = item.checklist || [];
+    const doneCount = checklist.filter(s => s.done).length;
     const dateLabel = item.scheduled_date
-        ? new Date(item.scheduled_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'numeric' })
+        ? new Date(item.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
         : 'No date';
+    const stageLabel = STAGES.find(s => s.key === item.stage)?.label || item.stage;
     return `
-        <div class="pipeline-card" onclick="openChecklistPanel('${item.id}')">
-            <div class="pipeline-card-title">${escapeHtml(item.title)}</div>
-            <div class="pipeline-card-meta">
-                <span>${dateLabel}${item.scheduled_time ? ' ' + item.scheduled_time : ''}</span>
-            </div>
-            ${checklist.length ? `<div class="pipeline-card-progress">${doneCount}/${checklist.length} steps</div>` : ''}
+        <div class="pipeline-list-row" onclick="openChecklistPanel('${item.id}')">
+            <span class="pipeline-list-title">${escapeHtml(item.title)}</span>
+            <span class="pipeline-list-meta">${dateLabel}${item.scheduled_time ? ' ' + item.scheduled_time : ''}</span>
+            <span class="pipeline-list-stage">${stageLabel}</span>
+            <span class="pipeline-list-progress">${doneCount}/${checklist.length}</span>
         </div>
+    `;
+}
+
+// ── Mini month calendar — click any day to jump the board to its week ──
+function renderMiniCalendar() {
+    const el = document.getElementById('miniCalendar');
+    if (!el) return;
+
+    const refDate = new Date(currentWeekStart);
+    const year = refDate.getFullYear();
+    const month = refDate.getMonth();
+    const monthLabel = refDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+    const firstOfMonth = new Date(year, month, 1);
+    const startPad = (firstOfMonth.getDay() + 6) % 7; // Monday-first padding
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const weekStartIso = isoDate(currentWeekStart);
+    const weekEndIso = isoDate(weekEnd(currentWeekStart));
+
+    let cells = '';
+    for (let i = 0; i < startPad; i++) cells += '<span class="mini-cal-cell mini-cal-cell--empty"></span>';
+    for (let d = 1; d <= daysInMonth; d++) {
+        const cellIso = isoDate(new Date(year, month, d));
+        const inCurrentWeek = cellIso >= weekStartIso && cellIso <= weekEndIso;
+        cells += `<span class="mini-cal-cell ${inCurrentWeek ? 'mini-cal-cell--active' : ''}" onclick="jumpToWeekContaining('${cellIso}')">${d}</span>`;
+    }
+
+    el.innerHTML = `
+        <div class="mini-cal-title">${monthLabel}</div>
+        <div class="mini-cal-grid">${cells}</div>
     `;
 }
 
