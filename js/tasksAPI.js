@@ -1,36 +1,26 @@
-// 3C Production Manager — Tasks API wrapper
+// 3C Production Manager — Tasks (diary) API wrapper
 
-async function apiGetTasks() {
-  const res = await fetch(`${CONFIG.apiBase}/tasks`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Failed to load tasks');
+async function apiGetDiaryEntries(date) {
+  const res = await fetch(`${CONFIG.apiBase}/tasks?date=${encodeURIComponent(date)}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Failed to load diary entries');
   return res.json();
 }
 
-async function apiCreateTask({ title, notes, due_date }) {
+async function apiCreateDiaryEntry({ entry_date, entry_time, text }) {
   const res = await fetch(`${CONFIG.apiBase}/tasks`, {
     method: 'POST',
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, notes, due_date }),
+    body: JSON.stringify({ entry_date, entry_time, text }),
   });
-  if (!res.ok) throw new Error('Failed to create task');
+  if (!res.ok) throw new Error('Failed to create diary entry');
   return res.json();
 }
 
-async function apiUpdateTask(id, patch) {
-  const res = await fetch(`${CONFIG.apiBase}/tasks/${id}`, {
-    method: 'PATCH',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(patch),
-  });
-  if (!res.ok) throw new Error('Failed to update task');
-  return res.json();
-}
-
-async function apiDeleteTask(id) {
+async function apiDeleteDiaryEntry(id) {
   const res = await fetch(`${CONFIG.apiBase}/tasks/${id}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Failed to delete task');
+  if (!res.ok) throw new Error('Failed to delete diary entry');
   return res.json();
 }
