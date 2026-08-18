@@ -23,76 +23,79 @@
     <div class="main-tabs">
         <button id="mainTabBtn-tasks" class="main-tab-btn active" onclick="switchMainTab('tasks')">Tasks</button>
         <button id="mainTabBtn-pipeline" class="main-tab-btn" onclick="switchMainTab('pipeline')">Pipeline</button>
+        <button class="btn btn-ghost" onclick="signOut()" title="Sign out">Sign out</button>
     </div>
 </header>
 
 <div class="container">
 
-    <!-- ── Tasks tab ─────────────────────────────────────── -->
+    <!-- ── Tasks tab — a diary, one day at a time ──────────── -->
     <div id="tasksTab">
-        <div style="display:flex; gap:8px; margin-bottom:1rem;">
-            <input type="text" id="newTaskTitle" class="form-input" placeholder="New task...">
-            <input type="date" id="newTaskDue" class="form-input" style="max-width:160px;">
-            <button class="btn btn-add" onclick="addTask()">+ Add</button>
+        <div class="diary-date-row">
+            <input type="date" id="diaryDateInput" class="form-input" style="max-width:180px;" onchange="changeDiaryDate()">
         </div>
-        <div id="taskList"></div>
+
+        <div id="diaryEntryList" style="margin-bottom:1.5rem;"></div>
+
+        <div class="diary-add-row">
+            <input type="time" id="newDiaryTime" class="form-input" style="max-width:120px;">
+            <input type="text" id="newDiaryText" class="form-input" placeholder="What's on your mind...">
+            <button class="btn btn-add" onclick="addDiaryEntry()">+ Add</button>
+        </div>
     </div>
 
-    <!-- ── Pipeline tab ──────────────────────────────────── -->
+    <!-- ── Pipeline tab — per platform, fully independent ──── -->
     <div id="pipelineTab" style="display:none;">
         <div id="platformTabs" class="platform-tabs"></div>
-        <div class="week-nav">
-            <button class="week-nav-btn" onclick="changeWeek(-1)">←</button>
-            <span id="weekLabel" class="week-label"></span>
-            <button class="week-nav-btn" onclick="changeWeek(1)">→</button>
-            <button class="btn btn-ghost" style="margin-left:auto;" onclick="openExportView()">View / export</button>
+
+        <div class="pipeline-top-row">
+            <div class="pipeline-top-left">
+                <div class="week-nav">
+                    <button class="week-nav-btn" onclick="changeWeek(-1)">←</button>
+                    <span id="weekLabel" class="week-label"></span>
+                    <button class="week-nav-btn" onclick="changeWeek(1)">→</button>
+                </div>
+                <div id="stageCounters" class="stage-counters"></div>
+            </div>
+            <div id="miniCalendar" class="mini-calendar"></div>
         </div>
-        <div id="stageBoard" class="stage-board"></div>
+
+        <div class="pipeline-actions-row">
+            <button class="btn btn-add" onclick="openAddTaskModal()">+ Add Task</button>
+            <button class="btn btn-ghost" onclick="openExportView()">View / export</button>
+        </div>
+
+        <div id="pipelineItemList" class="pipeline-item-list"></div>
     </div>
 
 </div>
 
-<!-- ── Checklist detail panel ─────────────────────────────── -->
+<!-- ── Unified detail panel — add-task mode and edit mode ─── -->
 <div id="detailOverlay" class="detail-overlay" onclick="closeChecklistPanel()"></div>
 <div id="detailPanel" class="detail-panel">
     <div class="detail-panel-header">
         <h3 id="detailTitle"></h3>
         <button class="detail-panel-close" onclick="closeChecklistPanel()">✕</button>
     </div>
+    <div id="detailDateTime" style="display:none; gap:8px; margin-bottom:14px;">
+        <input type="date" id="taskDateInput" class="form-input">
+        <input type="time" id="taskTimeInput" class="form-input">
+    </div>
     <div id="detailChecklist"></div>
+    <button id="detailSaveBtn" class="btn btn-primary" style="display:none; width:100%; margin-top:12px;" onclick="saveNewTask()">Add Task</button>
     <div id="scheduleSubsteps" class="schedule-substeps" style="display:none;"></div>
     <div id="archiveBlock" style="display:none;"></div>
 </div>
 
-<!-- ── Add Platform modal ──────────────────────────────────── -->
+<!-- ── Add Platform modal — its own editable checklist ─────── -->
 <div id="addPlatformModal" class="modal">
     <div class="modal-content">
-        <h3 style="margin-bottom:1rem;">Add platform / content type</h3>
-        <input type="text" id="newPlatformName" class="form-input" placeholder="Name, e.g. Instagram Reel" style="margin-bottom:10px;">
-        <textarea id="newPlatformChecklist" class="form-textarea" rows="3" placeholder="Checklist steps, comma-separated, e.g. Film, Edit, Schedule, Publish, Archive" style="margin-bottom:10px;"></textarea>
-        <label style="display:flex; align-items:center; gap:8px; margin-bottom:14px; font-size:0.85rem;">
-            <input type="checkbox" id="newPlatformNeedsArchive" checked> Needs an Archive step
-        </label>
-        <div style="display:flex; gap:8px;">
+        <h3 style="margin-bottom:1rem;">Add platform</h3>
+        <input type="text" id="newPlatformName" class="form-input" placeholder="Name, e.g. Instagram" style="margin-bottom:14px;">
+        <div id="newPlatformChecklistEditor"></div>
+        <div style="display:flex; gap:8px; margin-top:14px;">
             <button class="btn btn-primary" onclick="saveNewPlatform()">Save</button>
             <button class="btn btn-ghost" onclick="closeAddPlatformModal()">Cancel</button>
-        </div>
-    </div>
-</div>
-
-<!-- ── Add Content modal ───────────────────────────────────── -->
-<div id="addContentModal" class="modal">
-    <div class="modal-content">
-        <h3 style="margin-bottom:1rem;">Add content</h3>
-        <select id="newContentTemplate" class="form-select" style="margin-bottom:10px;"></select>
-        <input type="text" id="newContentTitle" class="form-input" placeholder="Title" style="margin-bottom:10px;">
-        <div style="display:flex; gap:8px; margin-bottom:14px;">
-            <input type="date" id="newContentDate" class="form-input">
-            <input type="time" id="newContentTime" class="form-input">
-        </div>
-        <div style="display:flex; gap:8px;">
-            <button class="btn btn-primary" onclick="saveNewContent()">Save</button>
-            <button class="btn btn-ghost" onclick="closeAddContentModal()">Cancel</button>
         </div>
     </div>
 </div>
