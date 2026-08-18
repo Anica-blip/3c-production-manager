@@ -169,32 +169,118 @@
     .pipeline-list-row { grid-template-columns: 1fr; gap: 4px; }
 }
 
-/* ── Tasks — diary ─────────────────────────────────────────── */
-.diary-date-row { margin-bottom: 1rem; }
-
-.diary-entry {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0.7rem 1rem;
-    background: rgba(45,27,78,0.4);
-    border: 1px solid rgba(155,89,182,0.2);
-    border-radius: 8px;
-    margin-bottom: 8px;
-}
-
-.diary-entry-time {
-    font-size: 0.75rem;
-    color: var(--teal);
-    min-width: 48px;
-}
-
-.diary-entry-text { flex: 1; font-size: 0.9rem; }
-
-.diary-add-row {
+/* ── Tasks — sticky note toolbar row ──────────────────────── */
+.sticky-toolbar-row {
     display: flex;
     gap: 8px;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
 }
+
+.sticky-toolbar-row .form-textarea {
+    flex: 2;
+    min-width: 200px;
+    min-height: 42px;
+    max-height: 42px;
+    resize: vertical;
+}
+
+/* ── Sticky note board — corkboard layout, notes wrap and grow ── */
+.sticky-note-board {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    align-items: flex-start;
+}
+
+.sticky-note {
+    width: 220px;
+    border-radius: 4px;
+    padding: 14px 14px 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    position: relative;
+    transform: rotate(-1deg);
+}
+
+.sticky-note:nth-child(even) { transform: rotate(1deg); }
+.sticky-note:nth-child(3n) { transform: rotate(-0.5deg); }
+
+.sticky-note-delete {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 2px;
+}
+
+.sticky-note-delete:hover { color: #ffffff; }
+
+.sticky-note-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+    padding-right: 16px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.sticky-note-description-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.75);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+.sticky-note-bullets {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 12px;
+}
+
+.sticky-note-bullet {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 10px;
+    color: rgba(255,255,255,0.92);
+    cursor: pointer;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.sticky-note-bullet input[type="checkbox"] {
+    margin-top: 1px;
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.sticky-note-bullet.done span { text-decoration: line-through; opacity: 0.55; }
+
+.sticky-note-time {
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.65);
+    text-align: right;
+}
+
+/* Rotating sticky-note colors — deep/saturated, not pale pastels, so
+   white bold title text stays readable against every one of them. */
+.sticky--yellow { background: #a67c1e; }
+.sticky--pink   { background: #a13d63; }
+.sticky--blue   { background: #2a5d8f; }
+.sticky--green  { background: #2f7a4f; }
+.sticky--orange { background: #b5541f; }
 
 /* ── Checklist detail panel ────────────────────────────── */
 .detail-overlay {
