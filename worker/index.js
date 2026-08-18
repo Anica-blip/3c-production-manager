@@ -4,14 +4,12 @@
 // the "Add to record center" checklist sub-step ticked by Chef.
 //
 // Auth: GitHub OAuth, restricted to a single account. Matches Record
-// Centre's proven pattern exactly — a signed session token passed via
-// the Authorization header and stored in localStorage on the front-end,
-// NOT a cookie. GitHub Pages and this Worker are different sites, and
-// Firefox's Total Cookie Protection (plus Safari ITP) blocks cross-site
-// cookies by default — a bearer token has no such problem. The only
-// cookie used anywhere here is the short-lived OAuth state value, which
-// is set and read within the same request chain (GitHub → this Worker's
-// own callback) and never crosses origins, so it's unaffected.
+// Centre's proven pattern — a signed session token via the Authorization
+// header, stored in localStorage on the front-end, NOT a cookie (Firefox
+// Total Cookie Protection / Safari ITP block cross-site cookies by
+// default, which is what broke the earlier cookie-based version). The
+// only cookie used anywhere is the short-lived OAuth state value, set
+// and read within the same request chain, never crossing origins.
 
 const GITHUB_USERNAME = 'Anica-blip'; // only this GitHub account may log in
 const FRONTEND_URL = 'https://anica-blip.github.io/3c-production-manager/';
@@ -37,8 +35,7 @@ function genId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ── Session signing (HMAC-SHA256, no external deps) — same mechanism
-// Record Centre uses, so both are auditable against the same pattern. ──
+// ── Session signing (HMAC-SHA256, no external deps) ──────────────
 async function hmac(data, secret) {
   const key = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(secret),
@@ -105,10 +102,13 @@ async function getSessionUser(request, env) {
   return { login: payload.login };
 }
 
-async function guarded(request, env, handler) {
-  const user = await getSessionUser(request, env);
-  if (!user) return json({ error: 'Not authenticated' }, 401);
-  return handler();
+// ── Week helper — Monday of the week containing this ISO date ────
+function mondayOfISO(isoDate) {
+  const d = new Date(isoDate + 'T00:00:00Z');
+  const day = d.getUTCDay(); // 0 = Sunday
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d.toISOString().slice(0, 10);
 }
 
 export default {
@@ -168,11 +168,6 @@ export default {
         }
 
         const session = await signSession({ login: userData.login }, env.SESSION_SECRET);
-        // Token rides in the URL fragment (#), not a query string — the
-        // fragment never gets sent to any server, including this one, so
-        // it never lands in a request log. The front-end reads it once
-        // from window.location.hash, stores it in localStorage, and
-        // strips it from the URL.
         const res = Response.redirect(`${FRONTEND_URL}#token=${session}`, 302);
         return withCookie(res, STATE_COOKIE, '', { maxAge: 0 });
       }
@@ -189,66 +184,57 @@ export default {
         if (!user) return corsResponse(env, json({ error: 'Unauthorized' }, 401));
       }
 
-      // ── Tasks ──────────────────────────────────────────────
+      // ── Tasks — diary entries, grouped by date ──────────────
       if (path === '/api/tasks' && method === 'GET') {
+        const date = url.searchParams.get('date');
+        if (!date) return corsResponse(env, json({ error: 'date is required' }, 400));
         const { results } = await env.PRODUCTION_DB
-          .prepare('SELECT * FROM tasks ORDER BY done ASC, due_date ASC, created_at DESC')
-          .all();
+          .prepare('SELECT * FROM tasks WHERE entry_date = ? ORDER BY entry_time ASC, created_at ASC')
+          .bind(date).all();
         return corsResponse(env, json(results));
       }
 
       if (path === '/api/tasks' && method === 'POST') {
         const b = await request.json();
-        if (!b.title) return corsResponse(env, json({ error: 'title is required' }, 400));
-        const id = genId('task');
+        if (!b.entry_date || !b.text) return corsResponse(env, json({ error: 'entry_date and text are required' }, 400));
+        const id = genId('diary');
         await env.PRODUCTION_DB.prepare(
-          `INSERT INTO tasks (id, title, notes, due_date) VALUES (?, ?, ?, ?)`
-        ).bind(id, b.title, b.notes || null, b.due_date || null).run();
+          `INSERT INTO tasks (id, entry_date, entry_time, text) VALUES (?, ?, ?, ?)`
+        ).bind(id, b.entry_date, b.entry_time || null, b.text).run();
         return corsResponse(env, json({ id }, 201));
       }
 
       const taskMatch = path.match(/^\/api\/tasks\/([^/]+)$/);
-      if (taskMatch && method === 'PATCH') {
-        const b = await request.json();
-        const fields = [];
-        const vals = [];
-        for (const key of ['title', 'notes', 'due_date', 'done']) {
-          if (key in b) { fields.push(`${key} = ?`); vals.push(b[key]); }
-        }
-        if (!fields.length) return corsResponse(env, json({ error: 'Nothing to update' }, 400));
-        vals.push(taskMatch[1]);
-        await env.PRODUCTION_DB.prepare(
-          `UPDATE tasks SET ${fields.join(', ')}, updated_at = datetime('now') WHERE id = ?`
-        ).bind(...vals).run();
-        return corsResponse(env, json({ ok: true }));
-      }
-
       if (taskMatch && method === 'DELETE') {
         await env.PRODUCTION_DB.prepare('DELETE FROM tasks WHERE id = ?').bind(taskMatch[1]).run();
         return corsResponse(env, json({ ok: true }));
       }
 
-      // ── Pipeline templates (checklist definitions per content type) ──
-      if (path === '/api/templates' && method === 'GET') {
-        const { results } = await env.PRODUCTION_DB
-          .prepare('SELECT * FROM pipeline_templates ORDER BY type_name ASC')
-          .all();
-        return corsResponse(env, json(results.map(r => ({ ...r, checklist: JSON.parse(r.checklist_json) }))));
-      }
-
-      if (path === '/api/templates' && method === 'POST') {
-        const b = await request.json();
-        if (!b.type_name || !Array.isArray(b.checklist) || !b.checklist.length) {
-          return corsResponse(env, json({ error: 'type_name and a non-empty checklist array are required' }, 400));
+      // ── Platform defaults — a starting suggestion only, never a
+      // locked structure. Frontend pre-fills the Add Task form with
+      // this, fully editable before (and after) saving. ──────────
+      if (path === '/api/platform-defaults' && method === 'GET') {
+        const platform = url.searchParams.get('platform');
+        if (platform) {
+          const row = await env.PRODUCTION_DB
+            .prepare('SELECT * FROM platform_defaults WHERE platform = ?').bind(platform).first();
+          return corsResponse(env, json(row ? { ...row, checklist: JSON.parse(row.default_checklist_json) } : { platform, checklist: [] }));
         }
-        const id = genId('tpl');
-        await env.PRODUCTION_DB.prepare(
-          `INSERT INTO pipeline_templates (id, type_name, platform, checklist_json, needs_archive) VALUES (?, ?, ?, ?, ?)`
-        ).bind(id, b.type_name, b.platform || null, JSON.stringify(b.checklist), b.needs_archive === false ? 0 : 1).run();
-        return corsResponse(env, json({ id }, 201));
+        const { results } = await env.PRODUCTION_DB.prepare('SELECT platform FROM platform_defaults ORDER BY platform ASC').all();
+        return corsResponse(env, json(results.map(r => r.platform)));
       }
 
-      // ── Pipeline items ─────────────────────────────────────
+      if (path === '/api/platform-defaults' && method === 'POST') {
+        const b = await request.json();
+        if (!b.platform) return corsResponse(env, json({ error: 'platform is required' }, 400));
+        const checklist = Array.isArray(b.checklist) ? b.checklist : [];
+        await env.PRODUCTION_DB.prepare(
+          `INSERT OR REPLACE INTO platform_defaults (platform, default_checklist_json) VALUES (?, ?)`
+        ).bind(b.platform, JSON.stringify(checklist)).run();
+        return corsResponse(env, json({ platform: b.platform }, 201));
+      }
+
+      // ── Pipeline items — checklist lives on the item itself ─
       if (path === '/api/pipeline' && method === 'GET') {
         const platform = url.searchParams.get('platform');
         const weekStart = url.searchParams.get('week_start');
@@ -262,19 +248,21 @@ export default {
         }
         sql += ' ORDER BY scheduled_date ASC, scheduled_time ASC';
         const { results } = await env.PRODUCTION_DB.prepare(sql).bind(...vals).all();
-        return corsResponse(env, json(results.map(r => ({ ...r, checklist_state: JSON.parse(r.checklist_state_json || '{}') }))));
+        return corsResponse(env, json(results.map(r => ({ ...r, checklist: JSON.parse(r.checklist_json || '[]') }))));
       }
 
       if (path === '/api/pipeline' && method === 'POST') {
         const b = await request.json();
-        if (!b.template_id || !b.platform || !b.title) {
-          return corsResponse(env, json({ error: 'template_id, platform, and title are required' }, 400));
+        if (!b.platform || !b.title) {
+          return corsResponse(env, json({ error: 'platform and title are required' }, 400));
         }
+        const checklist = (Array.isArray(b.checklist) ? b.checklist : [])
+          .map(step => ({ step: String(step), done: false }));
         const id = genId('item');
         await env.PRODUCTION_DB.prepare(
-          `INSERT INTO pipeline_items (id, template_id, platform, title, scheduled_date, scheduled_time, stage)
-           VALUES (?, ?, ?, ?, ?, ?, 'create')`
-        ).bind(id, b.template_id, b.platform, b.title, b.scheduled_date || null, b.scheduled_time || null).run();
+          `INSERT INTO pipeline_items (id, platform, title, scheduled_date, scheduled_time, stage, checklist_json)
+           VALUES (?, ?, ?, ?, ?, 'create', ?)`
+        ).bind(id, b.platform, b.title, b.scheduled_date || null, b.scheduled_time || null, JSON.stringify(checklist)).run();
         return corsResponse(env, json({ id }, 201));
       }
 
@@ -289,13 +277,12 @@ export default {
           if (key in b) { fields.push(`${key} = ?`); vals.push(b[key]); }
         }
 
-        if (b.checklist_state) {
-          const existing = await env.PRODUCTION_DB
-            .prepare('SELECT checklist_state_json FROM pipeline_items WHERE id = ?')
-            .bind(itemMatch[1]).first();
-          const merged = { ...(existing ? JSON.parse(existing.checklist_state_json || '{}') : {}), ...b.checklist_state };
-          fields.push('checklist_state_json = ?');
-          vals.push(JSON.stringify(merged));
+        // Checklist is sent WHOLE and overwrites — structural edits
+        // (add/delete/reorder a step) aren't a simple merge like a
+        // single tick was in the old design.
+        if (Array.isArray(b.checklist)) {
+          fields.push('checklist_json = ?');
+          vals.push(JSON.stringify(b.checklist));
         }
 
         if (b.archive_confirmed === true) {
@@ -350,14 +337,42 @@ export default {
     }
   },
 
-  // Daily cron — deletes only the LIVE tracking row for items archived
-  // 15+ days ago. The permanent record is the .md filed in COG and/or
-  // the CSV already exported; this just clears finished pipeline clutter.
+  // Daily cron — PER PLATFORM, PER WEEK, all-or-nothing. A week's items
+  // only become eligible once every single item in that platform+week
+  // group is archived — one unfinished item holds the whole group open,
+  // exactly as Chef specified. The 15-day clock starts from the LATEST
+  // archive timestamp in the group (the moment the group actually
+  // finished), not from any individual item's own archive date.
   async scheduled(event, env, ctx) {
-    const cutoff = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
-    const { meta } = await env.PRODUCTION_DB.prepare(
-      `DELETE FROM pipeline_items WHERE archive_confirmed = 1 AND archive_confirmed_at < ?`
-    ).bind(cutoff).run();
-    console.log(`15-day cleanup: removed ${meta?.changes ?? 0} archived items`);
+    const { results } = await env.PRODUCTION_DB.prepare('SELECT * FROM pipeline_items').all();
+
+    const groups = {};
+    for (const item of results) {
+      if (!item.scheduled_date) continue;
+      const key = `${item.platform}|${mondayOfISO(item.scheduled_date)}`;
+      (groups[key] ||= []).push(item);
+    }
+
+    const now = Date.now();
+    const fifteenDaysMs = 15 * 24 * 60 * 60 * 1000;
+    let deleted = 0;
+
+    for (const key in groups) {
+      const items = groups[key];
+      const allArchived = items.every(i => i.archive_confirmed === 1);
+      if (!allArchived) continue;
+
+      const latestArchiveTime = Math.max(
+        ...items.map(i => i.archive_confirmed_at ? new Date(i.archive_confirmed_at + 'Z').getTime() : 0)
+      );
+      if (now - latestArchiveTime < fifteenDaysMs) continue;
+
+      for (const item of items) {
+        await env.PRODUCTION_DB.prepare('DELETE FROM pipeline_items WHERE id = ?').bind(item.id).run();
+        deleted++;
+      }
+    }
+
+    console.log(`Week-based cleanup: removed ${deleted} items across fully-archived platform/weeks 15+ days old`);
   },
 };
