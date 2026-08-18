@@ -184,27 +184,38 @@ export default {
         if (!user) return corsResponse(env, json({ error: 'Unauthorized' }, 401));
       }
 
-      // ── Tasks — diary entries, grouped by date ──────────────
+      // ── Tasks — sticky notes: title + tickable bullet points ──
       if (path === '/api/tasks' && method === 'GET') {
         const date = url.searchParams.get('date');
         if (!date) return corsResponse(env, json({ error: 'date is required' }, 400));
         const { results } = await env.PRODUCTION_DB
           .prepare('SELECT * FROM tasks WHERE entry_date = ? ORDER BY entry_time ASC, created_at ASC')
           .bind(date).all();
-        return corsResponse(env, json(results));
+        return corsResponse(env, json(results.map(r => ({ ...r, description: JSON.parse(r.description_json || '[]') }))));
       }
 
       if (path === '/api/tasks' && method === 'POST') {
         const b = await request.json();
-        if (!b.entry_date || !b.text) return corsResponse(env, json({ error: 'entry_date and text are required' }, 400));
-        const id = genId('diary');
+        if (!b.entry_date || !b.title) return corsResponse(env, json({ error: 'entry_date and title are required' }, 400));
+        const description = (Array.isArray(b.description) ? b.description : [])
+          .map(text => ({ text: String(text), done: false }));
+        const id = genId('note');
         await env.PRODUCTION_DB.prepare(
-          `INSERT INTO tasks (id, entry_date, entry_time, text) VALUES (?, ?, ?, ?)`
-        ).bind(id, b.entry_date, b.entry_time || null, b.text).run();
+          `INSERT INTO tasks (id, entry_date, entry_time, title, description_json) VALUES (?, ?, ?, ?, ?)`
+        ).bind(id, b.entry_date, b.entry_time || null, b.title, JSON.stringify(description)).run();
         return corsResponse(env, json({ id }, 201));
       }
 
       const taskMatch = path.match(/^\/api\/tasks\/([^/]+)$/);
+      if (taskMatch && method === 'PATCH') {
+        const b = await request.json();
+        if (!Array.isArray(b.description)) return corsResponse(env, json({ error: 'description array is required' }, 400));
+        await env.PRODUCTION_DB.prepare(
+          `UPDATE tasks SET description_json = ? WHERE id = ?`
+        ).bind(JSON.stringify(b.description), taskMatch[1]).run();
+        return corsResponse(env, json({ ok: true }));
+      }
+
       if (taskMatch && method === 'DELETE') {
         await env.PRODUCTION_DB.prepare('DELETE FROM tasks WHERE id = ?').bind(taskMatch[1]).run();
         return corsResponse(env, json({ ok: true }));
