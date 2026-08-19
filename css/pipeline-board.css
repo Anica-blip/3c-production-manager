@@ -199,15 +199,31 @@
     transition: transform 0.15s ease;
 }
 
+.index-toggle {
+    background: var(--teal);
+    color: var(--dark-purple);
+    border: none;
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.index-toggle:hover { transform: translateY(-1px); }
+
 .add-note-toggle:hover { transform: translateY(-1px); }
 
 /* ── Day sections — one per date with notes, in week order ──────── */
 .diary-day-section { margin-bottom: 1.8rem; }
 
 .diary-day-header {
-    font-size: 0.85rem;
+    font-size: 15.6px;
     font-weight: 700;
-    color: var(--lighter-purple);
+    color: #ffffff;
+    text-shadow: 0 0 6px rgba(255,255,255,0.7), 0 0 12px rgba(255,255,255,0.35);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     margin-bottom: 10px;
@@ -377,6 +393,55 @@
 }
 
 .note-sidebar.active { left: 0; }
+
+/* ── Completed sticky notes dim, so bright = still needs attention ── */
+.sticky-note--completed {
+    opacity: 0.42;
+    transition: opacity 0.2s ease;
+}
+
+.sticky-note--completed:hover { opacity: 0.85; }
+
+/* ── Index sidebar — mirrors the note sidebar, but from the RIGHT
+   and fully independent of it (own overlay, own toggle, own state) ── */
+.index-sidebar {
+    position: fixed;
+    top: 0;
+    right: -360px;
+    width: 340px;
+    max-width: 90vw;
+    height: 100%;
+    background: var(--medium-purple);
+    border-left: 1px solid rgba(155,89,182,0.3);
+    z-index: 901;
+    transition: right 0.25s ease;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+.index-sidebar.active { right: 0; }
+
+.index-list-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--white);
+    margin-bottom: 4px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.index-list-item:hover { background: rgba(78,205,196,0.15); color: var(--teal); }
+
+/* ── Highlight pulse when jumping to a note from the index ────── */
+@keyframes stickyHighlightPulse {
+    0%, 100% { box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+    50% { box-shadow: 0 0 0 4px var(--teal), 0 4px 20px rgba(78,205,196,0.6); }
+}
+
+.sticky-note--highlight {
+    animation: stickyHighlightPulse 1s ease-in-out 2;
+}
 
 .note-title-input {
     font-weight: 700;
