@@ -157,13 +157,20 @@ async function toggleStepDone(i, checked) {
     editingChecklist[i].done = checked;
     await persistChecklist();
 
-    if (checked) {
-        const stepName = editingChecklist[i].step.toLowerCase();
-        const stageMatch = STAGES.find(s => s.label.toLowerCase() === stepName);
-        if (stageMatch) {
-            await apiUpdatePipelineItem(currentItemId, { stage: stageMatch.key });
-        }
+    // Recompute from scratch rather than nudge forward/back by one —
+    // finds the furthest-along stage-named step that's still checked
+    // right now. Ticking a later one advances; unticking it reverts to
+    // whatever's still checked before it (or back to Create if nothing
+    // is). Same rule for both directions, so it can never drift.
+    let furthestIndex = -1;
+    for (const item of editingChecklist) {
+        if (!item.done) continue;
+        const idx = STAGES.findIndex(s => s.label.toLowerCase() === item.step.toLowerCase());
+        if (idx > furthestIndex) furthestIndex = idx;
     }
+    const newStage = furthestIndex >= 0 ? STAGES[furthestIndex].key : 'create';
+    await apiUpdatePipelineItem(currentItemId, { stage: newStage });
+
     await renderBoard();
     renderChecklistEditor();
 }
