@@ -39,6 +39,7 @@
                     <button class="week-nav-btn" onclick="changeTasksWeek(1)">→</button>
                 </div>
                 <button class="add-note-toggle" onclick="openNoteSidebar()">+ ADD</button>
+                <button class="index-toggle" onclick="openIndexSidebar()">INDEX</button>
             </div>
             <div id="tasksMiniCalendar" class="mini-calendar"></div>
         </div>
@@ -107,6 +108,16 @@
         <button class="icon-btn-round" onclick="closeNoteSidebar()" title="Cancel">✕</button>
         <button class="icon-btn-round icon-btn-round--save" onclick="saveStickyNoteFromSidebar()" title="Save">✓</button>
     </div>
+</div>
+
+<!-- ── Index sidebar — slides from the RIGHT, independent of the note sidebar ── -->
+<div id="indexSidebarOverlay" class="detail-overlay" onclick="closeIndexSidebar()"></div>
+<div id="indexSidebar" class="index-sidebar">
+    <div class="detail-panel-header">
+        <h3>This Week's Notes</h3>
+        <button class="detail-panel-close" onclick="closeIndexSidebar()">✕</button>
+    </div>
+    <div id="indexList"></div>
 </div>
 
 <!-- ── Add Platform modal — its own editable checklist ─────── -->
