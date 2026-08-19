@@ -25,6 +25,7 @@ function openAddTaskModal() {
     document.getElementById('taskDateInput').value = '';
     document.getElementById('taskTimeInput').value = '';
     document.getElementById('detailSaveBtn').style.display = 'block';
+    document.getElementById('detailSaveBtn').textContent = 'Add Task';
     document.getElementById('scheduleSubsteps').style.display = 'none';
     document.getElementById('archiveBlock').style.display = 'none';
 
@@ -41,7 +42,7 @@ function openAddTaskModal() {
     document.getElementById('detailOverlay').classList.add('active');
 }
 
-async function openChecklistPanel(itemId) {
+async function openChecklistPanel(itemId, editMode = false) {
     currentItemId = itemId;
     const items = await apiGetPipelineItems({ platform: currentPlatform,
         weekStart: isoDate(currentWeekStart), weekEnd: isoDate(weekEnd(currentWeekStart)) });
@@ -50,9 +51,18 @@ async function openChecklistPanel(itemId) {
 
     editingChecklist = (item.checklist || []).map(s => ({ ...s }));
 
-    document.getElementById('detailTitle').textContent = item.title;
-    document.getElementById('detailDateTime').style.display = 'none';
-    document.getElementById('detailSaveBtn').style.display = 'none';
+    if (editMode) {
+        document.getElementById('detailTitle').innerHTML = `<input type="text" id="taskTitleInput" class="form-input" value="${escapeHtml(item.title)}">`;
+        document.getElementById('detailDateTime').style.display = 'flex';
+        document.getElementById('taskDateInput').value = item.scheduled_date || '';
+        document.getElementById('taskTimeInput').value = item.scheduled_time || '';
+        document.getElementById('detailSaveBtn').style.display = 'block';
+        document.getElementById('detailSaveBtn').textContent = 'Save Changes';
+    } else {
+        document.getElementById('detailTitle').textContent = item.title;
+        document.getElementById('detailDateTime').style.display = 'none';
+        document.getElementById('detailSaveBtn').style.display = 'none';
+    }
 
     renderChecklistEditor();
 
@@ -194,20 +204,26 @@ async function confirmArchive() {
 }
 
 // ── Save a brand-new task ───────────────────────────────────────
-async function saveNewTask() {
+async function saveTaskDetails() {
     const title = document.getElementById('taskTitleInput').value.trim();
     const date = document.getElementById('taskDateInput').value || null;
     const time = document.getElementById('taskTimeInput').value || null;
     if (!title) return alert('Title is required.');
-    if (!editingChecklist.length) return alert('Add at least one checklist step.');
 
-    await apiCreatePipelineItem({
-        platform: currentPlatform,
-        title,
-        scheduled_date: date,
-        scheduled_time: time,
-        checklist: editingChecklist.map(s => s.step),
-    });
+    if (currentItemId) {
+        // Editing an existing item — only its title/date/time change here.
+        // The checklist itself keeps saving separately, per tick, as before.
+        await apiUpdatePipelineItem(currentItemId, { title, scheduled_date: date, scheduled_time: time });
+    } else {
+        if (!editingChecklist.length) return alert('Add at least one checklist step.');
+        await apiCreatePipelineItem({
+            platform: currentPlatform,
+            title,
+            scheduled_date: date,
+            scheduled_time: time,
+            checklist: editingChecklist.map(s => s.step),
+        });
+    }
     closeChecklistPanel();
     await renderBoard();
 }
