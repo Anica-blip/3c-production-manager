@@ -187,10 +187,19 @@ export default {
       // ── Tasks — sticky notes: title + tickable bullet points ──
       if (path === '/api/tasks' && method === 'GET') {
         const date = url.searchParams.get('date');
-        if (!date) return corsResponse(env, json({ error: 'date is required' }, 400));
-        const { results } = await env.PRODUCTION_DB
-          .prepare('SELECT * FROM tasks WHERE entry_date = ? ORDER BY entry_time ASC, created_at ASC')
-          .bind(date).all();
+        const weekStart = url.searchParams.get('week_start');
+        const weekEnd = url.searchParams.get('week_end');
+        let sql, vals;
+        if (weekStart && weekEnd) {
+          sql = 'SELECT * FROM tasks WHERE entry_date BETWEEN ? AND ? ORDER BY entry_date ASC, entry_time ASC, created_at ASC';
+          vals = [weekStart, weekEnd];
+        } else if (date) {
+          sql = 'SELECT * FROM tasks WHERE entry_date = ? ORDER BY entry_time ASC, created_at ASC';
+          vals = [date];
+        } else {
+          return corsResponse(env, json({ error: 'date or week_start+week_end is required' }, 400));
+        }
+        const { results } = await env.PRODUCTION_DB.prepare(sql).bind(...vals).all();
         return corsResponse(env, json(results.map(r => ({ ...r, description: JSON.parse(r.description_json || '[]') }))));
       }
 
@@ -198,7 +207,7 @@ export default {
         const b = await request.json();
         if (!b.entry_date || !b.title) return corsResponse(env, json({ error: 'entry_date and title are required' }, 400));
         const description = (Array.isArray(b.description) ? b.description : [])
-          .map(text => ({ text: String(text), done: false }));
+          .map(item => typeof item === 'string' ? { text: item, done: false } : { text: String(item.text || ''), done: !!item.done });
         const id = genId('note');
         await env.PRODUCTION_DB.prepare(
           `INSERT INTO tasks (id, entry_date, entry_time, title, description_json) VALUES (?, ?, ?, ?, ?)`
@@ -209,10 +218,20 @@ export default {
       const taskMatch = path.match(/^\/api\/tasks\/([^/]+)$/);
       if (taskMatch && method === 'PATCH') {
         const b = await request.json();
-        if (!Array.isArray(b.description)) return corsResponse(env, json({ error: 'description array is required' }, 400));
+        const fields = [];
+        const vals = [];
+        for (const key of ['title', 'entry_date', 'entry_time']) {
+          if (key in b) { fields.push(`${key} = ?`); vals.push(b[key]); }
+        }
+        if (Array.isArray(b.description)) {
+          fields.push('description_json = ?');
+          vals.push(JSON.stringify(b.description));
+        }
+        if (!fields.length) return corsResponse(env, json({ error: 'Nothing to update' }, 400));
+        vals.push(taskMatch[1]);
         await env.PRODUCTION_DB.prepare(
-          `UPDATE tasks SET description_json = ? WHERE id = ?`
-        ).bind(JSON.stringify(b.description), taskMatch[1]).run();
+          `UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`
+        ).bind(...vals).run();
         return corsResponse(env, json({ ok: true }));
       }
 
