@@ -124,3 +124,72 @@ body {
     .header { flex-direction: column; gap: 0.8rem; }
     .container { padding: 0 0.5rem; }
 }
+
+/* ── Login page ────────────────────────────────────────────── */
+.login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.login-card {
+    background: rgba(45,27,78,0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(155,89,182,0.3);
+    border-radius: 16px;
+    padding: 48px 40px;
+    max-width: 380px;
+    width: 100%;
+    text-align: center;
+}
+
+.login-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 20px;
+}
+
+.login-card h1 {
+    font-size: 1.4rem;
+    color: var(--lighter-purple);
+    margin-bottom: 10px;
+}
+
+.login-card .tagline {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+}
+
+.btn--github {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #24292e;
+    color: #ffffff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background 0.2s ease;
+}
+
+.btn--github:hover { background: #32383f; }
+.btn--github svg { width: 18px; height: 18px; fill: currentColor; }
+
+.watermark {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    padding: 6px;
+    font-size: 0.65rem;
+    opacity: 0.5;
+    pointer-events: none;
+}
