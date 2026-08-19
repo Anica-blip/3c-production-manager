@@ -155,7 +155,12 @@
     border-radius: 8px;
     padding: 10px 14px;
     cursor: pointer;
-    transition: border-color 0.15s ease;
+    transition: border-color 0.15s ease, background 0.2s ease;
+}
+
+.pipeline-list-row--incomplete {
+    background: rgba(245,166,35,0.22);
+    border-color: rgba(245,166,35,0.5);
 }
 
 .pipeline-list-row:hover { border-color: var(--teal); }
