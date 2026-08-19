@@ -115,12 +115,13 @@ async function renderBoard() {
 function renderListRow(item) {
     const checklist = item.checklist || [];
     const doneCount = checklist.filter(s => s.done).length;
+    const isComplete = checklist.length > 0 && doneCount === checklist.length;
     const dateLabel = item.scheduled_date
         ? new Date(item.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
         : 'No date';
     const stageLabel = STAGES.find(s => s.key === item.stage)?.label || item.stage;
     return `
-        <div class="pipeline-list-row" onclick="openChecklistPanel('${item.id}')">
+        <div class="pipeline-list-row ${isComplete ? '' : 'pipeline-list-row--incomplete'}" onclick="openChecklistPanel('${item.id}')">
             <span class="pipeline-list-title">${escapeHtml(item.title)}</span>
             <span class="pipeline-list-meta">${dateLabel}${item.scheduled_time ? ' ' + item.scheduled_time : ''}</span>
             <span class="pipeline-list-stage">${stageLabel}</span>
