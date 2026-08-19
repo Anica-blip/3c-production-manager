@@ -152,7 +152,7 @@
 
 .pipeline-list-row {
     display: grid;
-    grid-template-columns: 1fr auto auto auto;
+    grid-template-columns: 1fr auto auto auto auto;
     align-items: center;
     gap: 16px;
     background: rgba(45,27,78,0.4);
@@ -162,6 +162,17 @@
     cursor: pointer;
     transition: border-color 0.15s ease, background 0.2s ease;
 }
+
+.pipeline-list-edit-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.55);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.pipeline-list-edit-btn:hover { color: #ffffff; }
 
 .pipeline-list-row--incomplete {
     background: rgba(39,174,96,0.22);
