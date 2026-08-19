@@ -126,6 +126,7 @@ function renderListRow(item) {
             <span class="pipeline-list-meta">${dateLabel}${item.scheduled_time ? ' ' + item.scheduled_time : ''}</span>
             <span class="pipeline-list-stage">${stageLabel}</span>
             <span class="pipeline-list-progress">${doneCount}/${checklist.length}</span>
+            <button class="pipeline-list-edit-btn" onclick="event.stopPropagation(); openChecklistPanel('${item.id}', true)" title="Edit date, time, or title">✎</button>
         </div>
     `;
 }
