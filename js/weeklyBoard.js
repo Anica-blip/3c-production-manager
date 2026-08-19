@@ -86,17 +86,17 @@ async function renderBoard() {
         weekEnd: isoDate(weekEnd(currentWeekStart)),
     }) : [];
 
-    // Counters — pure counts, nothing else lives inside these.
-    // Archive specifically also flags whether this platform's week is
-    // genuinely finished: light orange if anything's still short of
-    // Archive, back to normal the moment everything has reached it.
-    const hasIncomplete = items.some(i => i.stage !== 'archive');
+    // Counters — pure counts, nothing else lives inside these. Colored
+    // by category, not by completion: Create/Review/Schedule/Publish are
+    // always green ("still active" in the pipeline), Archive is always
+    // blue/teal, matching the same stage-label color already used on a
+    // fully-done row.
     const counters = document.getElementById('stageCounters');
     counters.innerHTML = STAGES.map(stage => {
         const count = items.filter(i => i.stage === stage.key).length;
-        const incompleteClass = (stage.key === 'archive' && hasIncomplete) ? 'stage-counter--incomplete' : '';
+        const colorClass = stage.key === 'archive' ? 'stage-counter--archived' : 'stage-counter--active';
         return `
-            <div class="stage-counter ${incompleteClass}">
+            <div class="stage-counter ${colorClass}">
                 <div class="stage-counter-count">${count}</div>
                 <div class="stage-counter-label">${stage.label}</div>
             </div>
