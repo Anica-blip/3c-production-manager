@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return; // login cancelled/redirecting
     }
     await initWeeklyBoard();
-    await loadDiaryPage(todayIso());
+    await renderTasksWeek();
 });
 
 function todayIso() {
@@ -21,18 +21,94 @@ function switchMainTab(tab) {
     document.getElementById(`mainTabBtn-${tab}`).classList.add('active');
 }
 
-// ── Tasks — sticky notes, scoped to one date at a time ───────────
-let currentDiaryDate = todayIso();
+// ── Tasks — week-grouped sticky notes, own week nav independent
+// of Pipeline's ────────────────────────────────────────────────
+let currentTasksWeekStart = mondayOf(new Date());
+let currentWeekNotesCache = [];
+let editingNoteId = null; // null = composing new, else editing this note's id
+let noteDescriptionBullets = [{ text: '', done: false }];
 const STICKY_COLORS = ['sticky--yellow', 'sticky--pink', 'sticky--blue', 'sticky--green', 'sticky--orange'];
 
-async function loadDiaryPage(date) {
-    currentDiaryDate = date;
-    document.getElementById('diaryDateInput').value = date;
-    const notes = await apiGetStickyNotes(date);
-    const list = document.getElementById('diaryEntryList');
-    list.innerHTML = notes.length
-        ? notes.map((n, i) => renderStickyNote(n, i)).join('')
-        : '<p style="opacity:.5;padding:1rem 0;">Nothing logged for this day yet.</p>';
+function tasksWeekEnd(weekStart) {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 6);
+    return d;
+}
+
+function formatTasksWeekLabel(weekStart) {
+    const end = tasksWeekEnd(weekStart);
+    const opts = { day: 'numeric', month: 'short' };
+    return `${weekStart.toLocaleDateString('en-GB', opts)} – ${end.toLocaleDateString('en-GB', opts)}`;
+}
+
+function formatDayHeader(dateIso) {
+    const d = new Date(dateIso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+async function changeTasksWeek(delta) {
+    const d = new Date(currentTasksWeekStart);
+    d.setDate(d.getDate() + delta * 7);
+    currentTasksWeekStart = d;
+    await renderTasksWeek();
+}
+
+async function jumpTasksToWeekContaining(dateStr) {
+    currentTasksWeekStart = mondayOf(new Date(dateStr + 'T00:00:00'));
+    await renderTasksWeek();
+}
+
+async function renderTasksWeek() {
+    document.getElementById('tasksWeekLabel').textContent = formatTasksWeekLabel(currentTasksWeekStart);
+
+    currentWeekNotesCache = await apiGetStickyNotesForWeek({
+        weekStart: isoDate(currentTasksWeekStart),
+        weekEnd: isoDate(tasksWeekEnd(currentTasksWeekStart)),
+    });
+
+    const byDate = {};
+    currentWeekNotesCache.forEach(n => { (byDate[n.entry_date] ||= []).push(n); });
+    const dates = Object.keys(byDate).sort();
+
+    const container = document.getElementById('diaryEntryList');
+    container.innerHTML = dates.length
+        ? dates.map(date => `
+            <div class="diary-day-section">
+                <div class="diary-day-header">${formatDayHeader(date)}</div>
+                <div class="sticky-note-board">
+                    ${byDate[date].map((n, i) => renderStickyNote(n, i)).join('')}
+                </div>
+            </div>
+        `).join('')
+        : '<p style="opacity:.5;padding:1rem 0;">Nothing logged this week yet.</p>';
+
+    renderTasksMiniCalendar();
+}
+
+function renderTasksMiniCalendar() {
+    const el = document.getElementById('tasksMiniCalendar');
+    if (!el) return;
+
+    const refDate = new Date(currentTasksWeekStart);
+    const year = refDate.getFullYear();
+    const month = refDate.getMonth();
+    const monthLabel = refDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+    const firstOfMonth = new Date(year, month, 1);
+    const startPad = (firstOfMonth.getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const weekStartIso = isoDate(currentTasksWeekStart);
+    const weekEndIso = isoDate(tasksWeekEnd(currentTasksWeekStart));
+
+    let cells = '';
+    for (let i = 0; i < startPad; i++) cells += '<span class="mini-cal-cell mini-cal-cell--empty"></span>';
+    for (let d = 1; d <= daysInMonth; d++) {
+        const cellIso = isoDate(new Date(year, month, d));
+        const inWeek = cellIso >= weekStartIso && cellIso <= weekEndIso;
+        cells += `<span class="mini-cal-cell ${inWeek ? 'mini-cal-cell--active' : ''}" onclick="jumpTasksToWeekContaining('${cellIso}')">${d}</span>`;
+    }
+
+    el.innerHTML = `<div class="mini-cal-title">${monthLabel}</div><div class="mini-cal-grid">${cells}</div>`;
 }
 
 function renderStickyNote(note, index) {
@@ -40,7 +116,10 @@ function renderStickyNote(note, index) {
     const bullets = note.description || [];
     return `
         <div class="sticky-note ${colorClass}">
-            <button class="sticky-note-delete" onclick="deleteStickyNote('${note.id}')" title="Delete">✕</button>
+            <div class="sticky-note-actions">
+                <button class="sticky-note-icon-btn" onclick="openNoteSidebarForEdit('${note.id}')" title="Edit">✎</button>
+                <button class="sticky-note-icon-btn" onclick="deleteStickyNote('${note.id}')" title="Delete">✕</button>
+            </div>
             <div class="sticky-note-title">Title: ${escapeHtml(note.title)}</div>
             ${bullets.length ? `
                 <div class="sticky-note-description-label">Description:</div>
@@ -59,49 +138,106 @@ function renderStickyNote(note, index) {
 }
 
 async function toggleStickyBullet(noteId, bulletIndex, checked) {
-    const notes = await apiGetStickyNotes(currentDiaryDate);
-    const note = notes.find(n => n.id === noteId);
+    const note = currentWeekNotesCache.find(n => n.id === noteId);
     if (!note) return;
     const description = note.description.map((b, i) => i === bulletIndex ? { ...b, done: checked } : b);
-    await apiUpdateStickyNote(noteId, description);
-    await loadDiaryPage(currentDiaryDate);
-}
-
-function changeDiaryDate() {
-    const date = document.getElementById('diaryDateInput').value;
-    if (date) loadDiaryPage(date);
-}
-
-async function addStickyNote() {
-    const titleInput = document.getElementById('newNoteTitle');
-    const descInput = document.getElementById('newNoteDescription');
-    const timeInput = document.getElementById('newNoteTime');
-
-    const title = titleInput.value.trim();
-    if (!title) return alert('Title is required.');
-
-    const description = descInput.value
-        .split('\n')
-        .map(line => line.trim())
-        .filter(Boolean);
-
-    await apiCreateStickyNote({
-        entry_date: currentDiaryDate,
-        entry_time: timeInput.value || null,
-        title,
-        description,
-    });
-
-    titleInput.value = '';
-    descInput.value = '';
-    timeInput.value = '';
-    await loadDiaryPage(currentDiaryDate);
+    await apiUpdateStickyNote(noteId, { description });
+    await renderTasksWeek();
 }
 
 async function deleteStickyNote(id) {
     if (!confirm('Delete this sticky note?')) return;
     await apiDeleteStickyNote(id);
-    await loadDiaryPage(currentDiaryDate);
+    await renderTasksWeek();
+}
+
+// ── Slide-out sidebar — composes a new note or edits an existing one ──
+function openNoteSidebar() {
+    editingNoteId = null;
+    document.getElementById('noteSidebarTitle').textContent = 'New Sticky Note';
+    document.getElementById('noteDateInput').value = isoDate(currentTasksWeekStart);
+    document.getElementById('noteTimeInput').value = '';
+    document.getElementById('noteTitleInput').value = '';
+    noteDescriptionBullets = [{ text: '', done: false }];
+    renderNoteDescriptionEditor();
+    document.getElementById('noteSidebar').classList.add('active');
+    document.getElementById('noteSidebarOverlay').classList.add('active');
+}
+
+function openNoteSidebarForEdit(noteId) {
+    const note = currentWeekNotesCache.find(n => n.id === noteId);
+    if (!note) return;
+    editingNoteId = note.id;
+    document.getElementById('noteSidebarTitle').textContent = 'Edit Sticky Note';
+    document.getElementById('noteDateInput').value = note.entry_date;
+    document.getElementById('noteTimeInput').value = note.entry_time || '';
+    document.getElementById('noteTitleInput').value = note.title;
+    noteDescriptionBullets = note.description.length
+        ? note.description.map(b => ({ ...b }))
+        : [{ text: '', done: false }];
+    renderNoteDescriptionEditor();
+    document.getElementById('noteSidebar').classList.add('active');
+    document.getElementById('noteSidebarOverlay').classList.add('active');
+}
+
+function closeNoteSidebar() {
+    document.getElementById('noteSidebar').classList.remove('active');
+    document.getElementById('noteSidebarOverlay').classList.remove('active');
+    editingNoteId = null;
+}
+
+// Live bullet composer — a box per line, Enter starts a new one, an
+// empty line's Backspace removes it. Matches Chef's own to-do habit.
+function renderNoteDescriptionEditor() {
+    const wrap = document.getElementById('noteDescriptionEditor');
+    wrap.innerHTML = noteDescriptionBullets.map((b, i) => `
+        <div class="note-bullet-row">
+            <span class="note-bullet-box"></span>
+            <input type="text" class="note-bullet-input" value="${escapeHtml(b.text)}"
+                oninput="updateNoteBullet(${i}, this.value)"
+                onkeydown="handleNoteBulletKeydown(event, ${i})">
+        </div>
+    `).join('');
+    const inputs = wrap.querySelectorAll('.note-bullet-input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function updateNoteBullet(i, value) {
+    noteDescriptionBullets[i].text = value;
+}
+
+function handleNoteBulletKeydown(event, i) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        if (i === noteDescriptionBullets.length - 1) {
+            noteDescriptionBullets.push({ text: '', done: false });
+            renderNoteDescriptionEditor();
+        }
+    } else if (event.key === 'Backspace' && noteDescriptionBullets[i].text === '' && noteDescriptionBullets.length > 1) {
+        event.preventDefault();
+        noteDescriptionBullets.splice(i, 1);
+        renderNoteDescriptionEditor();
+    }
+}
+
+async function saveStickyNoteFromSidebar() {
+    const title = document.getElementById('noteTitleInput').value.trim();
+    const date = document.getElementById('noteDateInput').value;
+    const time = document.getElementById('noteTimeInput').value || null;
+    if (!title) return alert('Title is required.');
+    if (!date) return alert('Date is required.');
+
+    const description = noteDescriptionBullets
+        .map(b => ({ text: b.text.trim(), done: b.done }))
+        .filter(b => b.text);
+
+    if (editingNoteId) {
+        await apiUpdateStickyNote(editingNoteId, { title, entry_date: date, entry_time: time, description });
+    } else {
+        await apiCreateStickyNote({ entry_date: date, entry_time: time, title, description: description.map(b => b.text) });
+    }
+    closeNoteSidebar();
+    await renderTasksWeek();
 }
 
 // ── Add Platform modal — its own small checklist editor ──────────
