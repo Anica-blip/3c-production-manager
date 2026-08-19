@@ -114,8 +114,9 @@ function renderTasksMiniCalendar() {
 function renderStickyNote(note, index) {
     const colorClass = STICKY_COLORS[index % STICKY_COLORS.length];
     const bullets = note.description || [];
+    const allDone = bullets.length > 0 && bullets.every(b => b.done);
     return `
-        <div class="sticky-note ${colorClass}">
+        <div id="sticky-note-${note.id}" class="sticky-note ${colorClass} ${allDone ? 'sticky-note--completed' : ''}">
             <div class="sticky-note-actions">
                 <button class="sticky-note-icon-btn" onclick="openNoteSidebarForEdit('${note.id}')" title="Edit">✎</button>
                 <button class="sticky-note-icon-btn" onclick="deleteStickyNote('${note.id}')" title="Delete">✕</button>
@@ -153,6 +154,7 @@ async function deleteStickyNote(id) {
 
 // ── Slide-out sidebar — composes a new note or edits an existing one ──
 function openNoteSidebar() {
+    closeIndexSidebar();
     editingNoteId = null;
     document.getElementById('noteSidebarTitle').textContent = 'New Sticky Note';
     document.getElementById('noteDateInput').value = isoDate(currentTasksWeekStart);
@@ -165,6 +167,7 @@ function openNoteSidebar() {
 }
 
 function openNoteSidebarForEdit(noteId) {
+    closeIndexSidebar();
     const note = currentWeekNotesCache.find(n => n.id === noteId);
     if (!note) return;
     editingNoteId = note.id;
@@ -178,6 +181,36 @@ function openNoteSidebarForEdit(noteId) {
     renderNoteDescriptionEditor();
     document.getElementById('noteSidebar').classList.add('active');
     document.getElementById('noteSidebarOverlay').classList.add('active');
+}
+
+// ── Index sidebar — alphabetical list of this week's note titles ──
+function openIndexSidebar() {
+    closeNoteSidebar();
+    renderIndexList();
+    document.getElementById('indexSidebar').classList.add('active');
+    document.getElementById('indexSidebarOverlay').classList.add('active');
+}
+
+function closeIndexSidebar() {
+    document.getElementById('indexSidebar').classList.remove('active');
+    document.getElementById('indexSidebarOverlay').classList.remove('active');
+}
+
+function renderIndexList() {
+    const sorted = [...currentWeekNotesCache].sort((a, b) => a.title.localeCompare(b.title));
+    const wrap = document.getElementById('indexList');
+    wrap.innerHTML = sorted.length
+        ? sorted.map(n => `<div class="index-list-item" onclick="jumpToStickyNote('${n.id}')">${escapeHtml(n.title)}</div>`).join('')
+        : '<p style="opacity:.5;">No sticky notes this week yet.</p>';
+}
+
+function jumpToStickyNote(noteId) {
+    closeIndexSidebar();
+    const el = document.getElementById(`sticky-note-${noteId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('sticky-note--highlight');
+    setTimeout(() => el.classList.remove('sticky-note--highlight'), 2000);
 }
 
 function closeNoteSidebar() {
