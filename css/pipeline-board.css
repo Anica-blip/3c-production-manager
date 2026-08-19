@@ -169,21 +169,50 @@
     .pipeline-list-row { grid-template-columns: 1fr; gap: 4px; }
 }
 
-/* ── Tasks — sticky note toolbar row ──────────────────────── */
-.sticky-toolbar-row {
+/* ── Tasks — top row: week nav + ADD toggle left, mini calendar right ── */
+.tasks-top-row {
     display: flex;
-    gap: 8px;
+    justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 1.5rem;
+    gap: 24px;
+    margin-bottom: 1.2rem;
     flex-wrap: wrap;
 }
 
-.sticky-toolbar-row .form-textarea {
-    flex: 2;
-    min-width: 200px;
-    min-height: 42px;
-    max-height: 42px;
-    resize: vertical;
+.tasks-top-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.add-note-toggle {
+    background: var(--orange);
+    color: var(--white);
+    border: none;
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.add-note-toggle:hover { transform: translateY(-1px); }
+
+/* ── Day sections — one per date with notes, in week order ──────── */
+.diary-day-section { margin-bottom: 1.8rem; }
+
+.diary-day-header {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--lighter-purple);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(155,89,182,0.25);
 }
 
 /* ── Sticky note board — corkboard layout, notes wrap and grow ── */
@@ -206,19 +235,24 @@
 .sticky-note:nth-child(even) { transform: rotate(1deg); }
 .sticky-note:nth-child(3n) { transform: rotate(-0.5deg); }
 
-.sticky-note-delete {
+.sticky-note-actions {
     position: absolute;
     top: 6px;
     right: 8px;
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.5);
-    font-size: 0.8rem;
-    cursor: pointer;
-    padding: 2px;
+    display: flex;
+    gap: 4px;
 }
 
-.sticky-note-delete:hover { color: #ffffff; }
+.sticky-note-icon-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.55);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 2px 3px;
+}
+
+.sticky-note-icon-btn:hover { color: #ffffff; }
 
 .sticky-note-title {
     font-size: 10px;
@@ -324,6 +358,98 @@
     font-size: 1.2rem;
     cursor: pointer;
 }
+
+/* ── Note sidebar — slides from the LEFT, opposite side from the
+   Pipeline detail panel, so the two never visually overlap ────── */
+.note-sidebar {
+    position: fixed;
+    top: 0;
+    left: -420px;
+    width: 400px;
+    max-width: 90vw;
+    height: 100%;
+    background: var(--medium-purple);
+    border-right: 1px solid rgba(155,89,182,0.3);
+    z-index: 901;
+    transition: left 0.25s ease;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+.note-sidebar.active { left: 0; }
+
+.note-title-input {
+    font-weight: 700;
+    font-size: 0.95rem;
+    min-height: 50px;
+    resize: vertical;
+    margin-bottom: 14px;
+}
+
+.note-description-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--lighter-purple);
+    margin-bottom: 8px;
+}
+
+.note-description-editor {
+    background: rgba(26,11,46,0.5);
+    border: 1px solid rgba(155,89,182,0.3);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.note-bullet-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.note-bullet-box {
+    width: 13px;
+    height: 13px;
+    border: 1.5px solid var(--teal);
+    border-radius: 3px;
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+.note-bullet-input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--white);
+    font-size: 0.9rem;
+    padding: 2px 0;
+    min-width: 0;
+}
+
+.note-bullet-input:focus { outline: none; }
+
+.note-sidebar-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.icon-btn-round {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.1);
+    color: var(--white);
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.icon-btn-round:hover { background: rgba(255,255,255,0.18); }
+.icon-btn-round--save { background: var(--teal); color: var(--dark-purple); }
+.icon-btn-round--save:hover { background: #6bc4bb; }
 
 .checklist-item {
     display: flex;
