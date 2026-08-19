@@ -72,9 +72,14 @@
     transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.stage-counter--incomplete {
-    background: rgba(245,166,35,0.22);
-    border-color: rgba(245,166,35,0.5);
+.stage-counter--active {
+    background: rgba(39,174,96,0.22);
+    border-color: rgba(39,174,96,0.5);
+}
+
+.stage-counter--archived {
+    background: rgba(78,205,196,0.22);
+    border-color: rgba(78,205,196,0.5);
 }
 
 .stage-counter-count {
@@ -159,8 +164,8 @@
 }
 
 .pipeline-list-row--incomplete {
-    background: rgba(245,166,35,0.22);
-    border-color: rgba(245,166,35,0.5);
+    background: rgba(39,174,96,0.22);
+    border-color: rgba(39,174,96,0.5);
 }
 
 .pipeline-list-row:hover { border-color: var(--teal); }
