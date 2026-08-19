@@ -86,12 +86,17 @@ async function renderBoard() {
         weekEnd: isoDate(weekEnd(currentWeekStart)),
     }) : [];
 
-    // Counters — pure counts, nothing else lives inside these
+    // Counters — pure counts, nothing else lives inside these.
+    // Archive specifically also flags whether this platform's week is
+    // genuinely finished: light orange if anything's still short of
+    // Archive, back to normal the moment everything has reached it.
+    const hasIncomplete = items.some(i => i.stage !== 'archive');
     const counters = document.getElementById('stageCounters');
     counters.innerHTML = STAGES.map(stage => {
         const count = items.filter(i => i.stage === stage.key).length;
+        const incompleteClass = (stage.key === 'archive' && hasIncomplete) ? 'stage-counter--incomplete' : '';
         return `
-            <div class="stage-counter">
+            <div class="stage-counter ${incompleteClass}">
                 <div class="stage-counter-count">${count}</div>
                 <div class="stage-counter-label">${stage.label}</div>
             </div>
