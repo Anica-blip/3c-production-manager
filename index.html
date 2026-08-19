@@ -31,15 +31,19 @@
 
     <!-- ── Tasks tab — a diary, one day at a time ──────────── -->
     <div id="tasksTab">
-        <div class="sticky-toolbar-row">
-            <input type="date" id="diaryDateInput" class="form-input" style="max-width:150px;" onchange="changeDiaryDate()">
-            <input type="time" id="newNoteTime" class="form-input" style="max-width:110px;">
-            <input type="text" id="newNoteTitle" class="form-input" placeholder="Title...">
-            <textarea id="newNoteDescription" class="form-textarea" rows="1" placeholder="Description — one point per line..."></textarea>
-            <button class="btn btn-add" onclick="addStickyNote()">+ Add</button>
+        <div class="tasks-top-row">
+            <div class="tasks-top-left">
+                <div class="week-nav">
+                    <button class="week-nav-btn" onclick="changeTasksWeek(-1)">←</button>
+                    <span id="tasksWeekLabel" class="week-label"></span>
+                    <button class="week-nav-btn" onclick="changeTasksWeek(1)">→</button>
+                </div>
+                <button class="add-note-toggle" onclick="openNoteSidebar()">+ ADD</button>
+            </div>
+            <div id="tasksMiniCalendar" class="mini-calendar"></div>
         </div>
 
-        <div id="diaryEntryList" class="sticky-note-board"></div>
+        <div id="diaryEntryList"></div>
     </div>
 
     <!-- ── Pipeline tab — per platform, fully independent ──── -->
@@ -83,6 +87,26 @@
     <button id="detailSaveBtn" class="btn btn-primary" style="display:none; width:100%; margin-top:12px;" onclick="saveNewTask()">Add Task</button>
     <div id="scheduleSubsteps" class="schedule-substeps" style="display:none;"></div>
     <div id="archiveBlock" style="display:none;"></div>
+</div>
+
+<!-- ── Note sidebar — slides from the LEFT, add/edit sticky notes ── -->
+<div id="noteSidebarOverlay" class="detail-overlay" onclick="closeNoteSidebar()"></div>
+<div id="noteSidebar" class="note-sidebar">
+    <div class="detail-panel-header">
+        <h3 id="noteSidebarTitle">New Sticky Note</h3>
+        <button class="detail-panel-close" onclick="closeNoteSidebar()">✕</button>
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <input type="date" id="noteDateInput" class="form-input">
+        <input type="time" id="noteTimeInput" class="form-input">
+    </div>
+    <textarea id="noteTitleInput" class="form-textarea note-title-input" rows="2" placeholder="Title..."></textarea>
+    <div class="note-description-label">Description</div>
+    <div id="noteDescriptionEditor" class="note-description-editor"></div>
+    <div class="note-sidebar-actions">
+        <button class="icon-btn-round" onclick="closeNoteSidebar()" title="Cancel">✕</button>
+        <button class="icon-btn-round icon-btn-round--save" onclick="saveStickyNoteFromSidebar()" title="Save">✓</button>
+    </div>
 </div>
 
 <!-- ── Add Platform modal — its own editable checklist ─────── -->
