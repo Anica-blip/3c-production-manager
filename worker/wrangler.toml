@@ -6,6 +6,10 @@ routes = [
   { pattern = "productionmanager.threadcommand.center", custom_domain = true }
 ]
 
+[vars]
+GITHUB_CLIENT_ID = "Ov23livZqchSvsyBVZTj"
+ALLOWED_ORIGIN = "https://anica-blip.github.io"
+
 [[d1_databases]]
 binding = "PRODUCTION_DB"
 database_name = "3c-production-manager-db"
