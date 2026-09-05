@@ -89,7 +89,17 @@ function renderTasksMiniCalendar() {
     const el = document.getElementById('tasksMiniCalendar');
     if (!el) return;
 
+    // FIX: pick the displayed month/year from the MIDDLE of the week
+    // (Thursday = weekStart + 3 days) instead of from the Monday itself.
+    // A week that starts on the last day(s) of a month (e.g. Mon 31 Aug –
+    // Sun 6 Sep) has the majority of its days in the following month, so
+    // Thursday of that week already falls in September — this is the
+    // same "which month owns this week" rule ISO-8601 week numbering
+    // uses. Without this, a week starting on a month's final day(s)
+    // rendered a grid with no room to show the days that roll into the
+    // next month. Same fix as weeklyBoard.js's renderMiniCalendar.
     const refDate = new Date(currentTasksWeekStart);
+    refDate.setDate(refDate.getDate() + 3);
     const year = refDate.getFullYear();
     const month = refDate.getMonth();
     const monthLabel = refDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
