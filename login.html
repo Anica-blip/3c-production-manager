@@ -15,6 +15,8 @@
       <h1>3C Production Manager</h1>
       <p class="tagline">Track every piece of production, idea through to archive.</p>
 
+      <p id="login-notice" class="login-notice" style="display:none; color:#c0392b; font-size:0.85rem; margin:-8px 0 16px;"></p>
+
       <a href="#" id="github-login-btn" class="btn btn--github">
         <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
           0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01
@@ -36,6 +38,18 @@
   <script>
     // If already logged in, skip this page entirely
     redirectIfLoggedIn();
+
+    // Bounced back here by the Worker (index.js) after a failed GitHub
+    // callback — almost always a re-used authorization code from a
+    // duplicated callback request, not an actual account problem.
+    // Nothing to fix on the user's end besides trying again.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('notice') === 'retry') {
+      const notice = document.getElementById('login-notice');
+      notice.textContent = 'That login attempt expired — please try signing in again.';
+      notice.style.display = 'block';
+      history.replaceState(null, '', window.location.pathname);
+    }
 
     document.getElementById('github-login-btn').addEventListener('click', (e) => {
       e.preventDefault();
