@@ -155,7 +155,12 @@ export default {
         });
         const tokenData = await tokenRes.json();
         if (!tokenData.access_token) {
-          return new Response('GitHub login failed — no access token returned.', { status: 401 });
+          // GitHub authorization codes are single-use. This almost always
+          // means the browser fired this callback request twice for the
+          // same code (seen after a cold cache/slow network causes a
+          // silent navigation retry) — the first request already redeemed
+          // it. Bounce to a clean retry screen instead of a raw error.
+          return Response.redirect(`${FRONTEND_URL}login.html?notice=retry`, 302);
         }
 
         const userRes = await fetch('https://api.github.com/user', {
