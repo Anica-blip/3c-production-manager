@@ -112,6 +112,14 @@ async function renderBoard() {
     renderMiniCalendar();
 }
 
+// Mirrors deleteStickyNote() in app.js — same confirm-then-delete-then-
+// re-render pattern, just against the pipeline API/board instead.
+async function deletePipelineItem(id) {
+    if (!confirm('Delete this pipeline item?')) return;
+    await apiDeletePipelineItem(id);
+    await renderBoard();
+}
+
 function renderListRow(item) {
     const checklist = item.checklist || [];
     const doneCount = checklist.filter(s => s.done).length;
@@ -127,6 +135,7 @@ function renderListRow(item) {
             <span class="pipeline-list-stage">${stageLabel}</span>
             <span class="pipeline-list-progress">${doneCount}/${checklist.length}</span>
             <button class="pipeline-list-edit-btn" onclick="event.stopPropagation(); openChecklistPanel('${item.id}', true)" title="Edit date, time, or title">✎</button>
+            <button class="pipeline-list-delete-btn" onclick="event.stopPropagation(); deletePipelineItem('${item.id}')" title="Delete">✕</button>
         </div>
     `;
 }
@@ -136,17 +145,7 @@ function renderMiniCalendar() {
     const el = document.getElementById('miniCalendar');
     if (!el) return;
 
-    // FIX: pick the displayed month/year from the MIDDLE of the week
-    // (Thursday = weekStart + 3 days) instead of from the Monday itself.
-    // A week that starts on the last day(s) of a month (e.g. Mon 31 Aug –
-    // Sun 6 Sep) has the majority of its days in the following month, so
-    // Thursday of that week already falls in September — this is the
-    // same "which month owns this week" rule ISO-8601 week numbering
-    // uses. Without this, a week starting on a month's final day(s)
-    // rendered a grid with no room to show the days that roll into the
-    // next month.
     const refDate = new Date(currentWeekStart);
-    refDate.setDate(refDate.getDate() + 3);
     const year = refDate.getFullYear();
     const month = refDate.getMonth();
     const monthLabel = refDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
