@@ -11,7 +11,33 @@ This project is part of the 3C Thread To Success™ ecosystem — a growing digi
 
 ---
 
-End
+## What it is
+
+A private task and production pipeline tracker, organised by week and by platform. It keeps production separate from creative work, so the whole pipeline never has to be held in one's head at once.
+
+## Inside
+
+**Tasks** — a weekly sticky-note diary. Each entry carries a date and time and its own tickable checklist, and sits on a mini calendar for the week. The Index gives a quick jump straight to any note.
+
+**Pipeline** — a separate weekly board for each platform, moving through five stages: Create, Review, Schedule, Publish, Archive.
+
+- Each task carries its own custom checklist. Ticking a step named after a stage (e.g. "Schedule") moves the task there automatically.
+- Schedule has two sub-steps of its own: *Add to platform* and *Add to record center*.
+- Archive is confirmed once the corresponding `.md` file has been filed to COG.
+- **View / export** shows published items as a table, with a CSV download.
+- New platforms can be added at any time, each with its own starting checklist.
+
+## Tech stack
+
+- Front end hosted on GitHub Pages
+- Cloudflare Worker at `productionmanager.threadcommand.center`
+- Cloudflare D1 for storage
+- GitHub OAuth, restricted to Chef's own account
+- Session held as a signed token in `localStorage`, not a cookie
+
+## Connected systems
+
+Links to the Record Centre by hand only — nothing here ever touches its code or its database.
 
 ---
 
