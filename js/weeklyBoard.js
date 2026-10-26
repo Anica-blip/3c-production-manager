@@ -25,8 +25,18 @@ function mondayOf(date) {
     return d;
 }
 
+// FIX: build the YYYY-MM-DD string from the LOCAL year/month/day.
+// The previous version used toISOString(), which converts to UTC first.
+// In any timezone ahead of UTC (e.g. Lisbon during summer time, UTC+1),
+// local midnight is 23:00 UTC of the PREVIOUS day, so every date shifted
+// back one day: weeks were queried Sunday–Saturday instead of
+// Monday–Sunday, and the real Sunday fell into the next week's range.
+// This function is shared with app.js (Tasks), so one fix covers both tabs.
 function isoDate(date) {
-    return date.toISOString().slice(0, 10);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
 function weekEnd(weekStart) {
