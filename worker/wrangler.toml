@@ -2,13 +2,16 @@ name = "3c-production-manager"
 main = "index.js"
 compatibility_date = "2026-08-17"
 
+# Only the custom domain serves this Worker. The workers.dev addresses stay off.
+workers_dev = false
+preview_urls = false
+
 routes = [
   { pattern = "productionmanager.threadcommand.center", custom_domain = true }
 ]
 
-[vars]
-GITHUB_CLIENT_ID = "Ov23livZqchSvsyBVZTj"
-ALLOWED_ORIGIN = "https://anica-blip.github.io"
+# No [vars] and no secrets: login is checked against Supabase (public URL and
+# anon key sit in index.js).
 
 [[d1_databases]]
 binding = "PRODUCTION_DB"
