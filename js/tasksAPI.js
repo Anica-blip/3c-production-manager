@@ -2,7 +2,7 @@
 
 async function apiGetStickyNotesForWeek({ weekStart, weekEnd }) {
   const params = new URLSearchParams({ week_start: weekStart, week_end: weekEnd });
-  const res = await fetch(`${CONFIG.apiBase}/tasks?${params}`, { headers: authHeaders() });
+  const res = await fetch(`${CONFIG.apiBase}/tasks?${params}`, { headers: await authHeaders() });
   if (!res.ok) throw new Error('Failed to load sticky notes');
   return res.json();
 }
@@ -11,7 +11,7 @@ async function apiGetStickyNotesForWeek({ weekStart, weekEnd }) {
 async function apiCreateStickyNote({ entry_date, entry_time, title, description }) {
   const res = await fetch(`${CONFIG.apiBase}/tasks`, {
     method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
     body: JSON.stringify({ entry_date, entry_time, title, description }),
   });
   if (!res.ok) throw new Error('Failed to create sticky note');
@@ -24,7 +24,7 @@ async function apiCreateStickyNote({ entry_date, entry_time, title, description 
 async function apiUpdateStickyNote(id, patch) {
   const res = await fetch(`${CONFIG.apiBase}/tasks/${id}`, {
     method: 'PATCH',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
   });
   if (!res.ok) throw new Error('Failed to update sticky note');
@@ -34,7 +34,7 @@ async function apiUpdateStickyNote(id, patch) {
 async function apiDeleteStickyNote(id) {
   const res = await fetch(`${CONFIG.apiBase}/tasks/${id}`, {
     method: 'DELETE',
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error('Failed to delete sticky note');
   return res.json();
