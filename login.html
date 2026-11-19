@@ -33,27 +33,32 @@
     Designed and Built with ❤️ by Claude (Anthropic) × Chef Anica · 3C Thread To Success™ Cooking Lab 🧪👨‍🍳
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="js/auth.js"></script>
   <script>
-    // If already logged in, skip this page entirely
-    redirectIfLoggedIn();
-
-    // Bounced back here by the Worker (index.js) after a failed GitHub
-    // callback — almost always a re-used authorization code from a
-    // duplicated callback request, not an actual account problem.
-    // Nothing to fix on the user's end besides trying again.
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('notice') === 'retry') {
-      const notice = document.getElementById('login-notice');
-      notice.textContent = 'That login attempt expired — please try signing in again.';
+    // Already signed in as the owner? redirectIfLoggedIn() skips this page.
+    // If a signed-in account turned out not to be the owner, it returns 'notowner'.
+    const notice = document.getElementById('login-notice');
+    function showNotice(text) {
+      notice.textContent = text;
       notice.style.display = 'block';
+    }
+
+    redirectIfLoggedIn().then((result) => {
+      if (result === 'notowner') showNotice('That account is not the owner account.');
+    });
+
+    // Sent back here by index.html when the signed-in account is not the owner.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('notice') === 'notowner') {
+      showNotice('That account is not the owner account.');
       history.replaceState(null, '', window.location.pathname);
     }
 
     document.getElementById('github-login-btn').addEventListener('click', (e) => {
       e.preventDefault();
-      redirectToLogin();
+      redirectToLogin().catch(() => showNotice('Sign-in could not start. Please try again.'));
     });
   </script>
 
