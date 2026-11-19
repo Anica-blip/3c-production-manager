@@ -1,13 +1,13 @@
 // 3C Production Manager — Pipeline API wrapper
 
 async function apiGetPlatforms() {
-  const res = await fetch(`${CONFIG.apiBase}/platform-defaults`, { headers: authHeaders() });
+  const res = await fetch(`${CONFIG.apiBase}/platform-defaults`, { headers: await authHeaders() });
   if (!res.ok) throw new Error('Failed to load platforms');
   return res.json(); // array of platform name strings
 }
 
 async function apiGetPlatformDefault(platform) {
-  const res = await fetch(`${CONFIG.apiBase}/platform-defaults?platform=${encodeURIComponent(platform)}`, { headers: authHeaders() });
+  const res = await fetch(`${CONFIG.apiBase}/platform-defaults?platform=${encodeURIComponent(platform)}`, { headers: await authHeaders() });
   if (!res.ok) throw new Error('Failed to load platform default');
   return res.json(); // { platform, checklist: [...] }
 }
@@ -15,7 +15,7 @@ async function apiGetPlatformDefault(platform) {
 async function apiCreatePlatform({ platform, checklist }) {
   const res = await fetch(`${CONFIG.apiBase}/platform-defaults`, {
     method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
     body: JSON.stringify({ platform, checklist }),
   });
   if (!res.ok) throw new Error('Failed to create platform');
@@ -28,7 +28,7 @@ async function apiGetPipelineItems({ platform, weekStart, weekEnd }) {
   if (platform) params.set('platform', platform);
   if (weekStart) params.set('week_start', weekStart);
   if (weekEnd) params.set('week_end', weekEnd);
-  const res = await fetch(`${CONFIG.apiBase}/pipeline?${params}`, { headers: authHeaders() });
+  const res = await fetch(`${CONFIG.apiBase}/pipeline?${params}`, { headers: await authHeaders() });
   if (!res.ok) throw new Error('Failed to load pipeline items');
   return res.json();
 }
@@ -38,7 +38,7 @@ async function apiGetPipelineItems({ platform, weekStart, weekEnd }) {
 async function apiCreatePipelineItem({ platform, title, scheduled_date, scheduled_time, checklist }) {
   const res = await fetch(`${CONFIG.apiBase}/pipeline`, {
     method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
     body: JSON.stringify({ platform, title, scheduled_date, scheduled_time, checklist }),
   });
   if (!res.ok) throw new Error('Failed to create pipeline item');
@@ -50,7 +50,7 @@ async function apiCreatePipelineItem({ platform, title, scheduled_date, schedule
 async function apiUpdatePipelineItem(id, patch) {
   const res = await fetch(`${CONFIG.apiBase}/pipeline/${id}`, {
     method: 'PATCH',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
   });
   if (!res.ok) throw new Error('Failed to update pipeline item');
@@ -60,7 +60,7 @@ async function apiUpdatePipelineItem(id, patch) {
 async function apiDeletePipelineItem(id) {
   const res = await fetch(`${CONFIG.apiBase}/pipeline/${id}`, {
     method: 'DELETE',
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error('Failed to delete pipeline item');
   return res.json();
@@ -71,7 +71,7 @@ async function apiExportUrl({ platform, weekStart, weekEnd }) {
   if (platform) params.set('platform', platform);
   if (weekStart) params.set('week_start', weekStart);
   if (weekEnd) params.set('week_end', weekEnd);
-  const res = await fetch(`${CONFIG.apiBase}/export?${params}`, { headers: authHeaders() });
+  const res = await fetch(`${CONFIG.apiBase}/export?${params}`, { headers: await authHeaders() });
   if (!res.ok) throw new Error('Failed to export');
   return res.blob();
 }
